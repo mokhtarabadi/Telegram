@@ -127,7 +127,7 @@ android {
 
         HA_private {
             jniDebuggable false
-            minifyEnabled true
+            minifyEnabled false
             multiDexEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro', '../TMessagesProj/proguard-rules-beta.pro'
             ndk.debugSymbolLevel = 'FULL'
@@ -140,7 +140,7 @@ android {
 
         HA_public {
             jniDebuggable false
-            minifyEnabled true
+            minifyEnabled false
             multiDexEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro', '../TMessagesProj/proguard-rules-beta.pro'
             ndk.debugSymbolLevel = 'FULL'
@@ -153,7 +153,7 @@ android {
 
         HA_hardcore {
             jniDebuggable false
-            minifyEnabled true
+            minifyEnabled false
             multiDexEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro', '../TMessagesProj/proguard-rules-beta.pro'
             ndk.debugSymbolLevel = 'FULL'
@@ -166,7 +166,7 @@ android {
 
         standalone {
             jniDebuggable false
-            minifyEnabled true
+            minifyEnabled false
             multiDexEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro'
             ndk.debugSymbolLevel = 'FULL'
@@ -179,7 +179,7 @@ android {
 
         release {
             jniDebuggable false
-            minifyEnabled true
+            minifyEnabled false
             shrinkResources false
             multiDexEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro'
