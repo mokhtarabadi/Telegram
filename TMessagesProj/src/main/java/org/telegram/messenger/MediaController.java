@@ -67,6 +67,8 @@ import android.view.WindowManager;
 import android.webkit.MimeTypeMap;
 import android.widget.FrameLayout;
 
+import androidx.annotation.NonNull;
+
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
@@ -84,10 +86,12 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Adapters.FiltersView;
 import org.telegram.ui.ChatActivity;
+import org.telegram.ui.Components.AnimatedFileDrawable;
 import org.telegram.ui.Components.EmbedBottomSheet;
 import org.telegram.ui.Components.PermissionRequest;
 import org.telegram.ui.Components.PhotoFilterView;
 import org.telegram.ui.Components.PipRoundVideoView;
+import org.telegram.ui.Components.RLottieDrawable;
 import org.telegram.ui.Components.Reactions.ReactionsLayoutInBubble;
 import org.telegram.ui.Components.VideoPlayer;
 import org.telegram.ui.LaunchActivity;
@@ -467,6 +471,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         public long starsAmount;
         public String emoji;
 
+        public final Matrix matrix = new Matrix();
+
         public int videoOrientation = -1;
 
         public boolean isChatPreviewSpoilerRevealed;
@@ -479,6 +485,11 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
         public CollageLayout collage;
         public ArrayList<PhotoEntry> collageContent;
+        public long videoOffset;
+
+        public PhotoEntry() {
+
+        }
 
         public PhotoEntry(int bucketId, int imageId, long dateTaken, String path, int orientationOrDuration, boolean isVideo, int width, int height, long size) {
             this.bucketId = bucketId;
@@ -509,6 +520,102 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             this.isVideo = isVideo;
         }
 
+        public boolean wouldBeVideo() {
+            return wouldBeVideo(mediaEntities);
+        }
+
+        public boolean wouldBeVideo(ArrayList<VideoEditedInfo.MediaEntity> mediaEntities) {
+            if (isVideo) {
+                return true;
+            }
+            if (mediaEntities != null && !mediaEntities.isEmpty()) {
+                for (int i = 0; i < mediaEntities.size(); ++i) {
+                    VideoEditedInfo.MediaEntity entity = mediaEntities.get(i);
+                    if (entity.type == VideoEditedInfo.MediaEntity.TYPE_STICKER) {
+                        if (isAnimated(entity.document, entity.text)) {
+                            return true;
+                        }
+                    } else if ((entity.type == VideoEditedInfo.MediaEntity.TYPE_TEXT/* || entity.type == VideoEditedInfo.MediaEntity.TYPE_LOCATION*/) && entity.entities != null && !entity.entities.isEmpty()) {
+                        for (int j = 0; j < entity.entities.size(); ++j) {
+                            VideoEditedInfo.EmojiEntity e = entity.entities.get(j);
+                            if (isAnimated(e.document, e.documentAbsolutePath)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        public static boolean isAnimated(TLRPC.Document document, String path) {
+            return document != null && (
+                    "video/webm".equals(document.mime_type) || "video/mp4".equals(document.mime_type) ||
+                            MessageObject.isAnimatedStickerDocument(document, true) && RLottieDrawable.getFramesCount(path, null) > 1
+            );
+        }
+
+        public static PhotoEntry asCollage(CollageLayout layout, ArrayList<PhotoEntry> entries) {
+            PhotoEntry entry = new PhotoEntry();
+            entry.editedInfo = new VideoEditedInfo();
+            entry.collage = layout;
+            entry.collageContent = entries;
+            for (PhotoEntry e : entries) {
+                if (e.isVideo) {
+                    entry.isVideo = true;
+                    e.editedInfo.start = 0;
+                    e.editedInfo.end = Math.min(1.0f, 59_000.0f / e.duration);
+                }
+            }
+            if (entry.isVideo) {
+                entry.width = 720;
+                entry.height = 1280;
+                entry.editedInfo.resultWidth = 720;
+                entry.editedInfo.resultHeight = 1280;
+            } else {
+                entry.width = 1080;
+                entry.height = 1920;
+                entry.editedInfo.resultWidth = 1080;
+                entry.editedInfo.resultHeight = 1920;
+            }
+            entry.setupMatrix();
+            return entry;
+        }
+
+        public static PhotoEntry fromPhotoShoot(int imageId, File file, int rotate) {
+            PhotoEntry entry = new PhotoEntry();
+            entry.editedInfo = new VideoEditedInfo();
+            entry.imageId = imageId;
+            entry.path = file.getAbsolutePath();
+            entry.canDeleteAfter = true;
+            entry.orientation = rotate == -1 ? 0 : rotate;
+            entry.invert = 0;
+            entry.isVideo = false;
+            entry.size = 0;
+            if (file != null) {
+                entry.decodeBounds(file.getAbsolutePath());
+            }
+            entry.setupMatrix();
+            return entry;
+        }
+
+        public static PhotoEntry fromVideoShoot(int imageId, File file, String thumbPath, int duration) {
+            PhotoEntry entry = new PhotoEntry();
+            entry.editedInfo = new VideoEditedInfo();
+            entry.imageId = imageId;
+            entry.editedInfo.fromCamera = true;
+            entry.path = file.getAbsolutePath();
+            entry.canDeleteAfter = true;
+            entry.orientation = 0;
+            entry.invert = 0;
+            entry.isVideo = true;
+            entry.duration = duration;
+            entry.thumbPath = thumbPath;
+            entry.editedInfo.start = 0;
+            entry.editedInfo.end = Math.min(1, 59_500f / entry.duration);
+            return entry;
+        }
+
         public PhotoEntry setOrientation(Pair<Integer, Integer> rotationAndInvert) {
             this.orientation = rotationAndInvert.first;
             this.invert = rotationAndInvert.second;
@@ -519,6 +626,19 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             this.orientation = rotation;
             this.invert = invert;
             return this;
+        }
+
+        public boolean isCollage() {
+            return collage != null && collageContent != null;
+        }
+
+        public boolean hasVideo() {
+            if (!isCollage()) return false;
+            for (int i = 0; i < collageContent.size(); ++i) {
+                if (collageContent.get(i).isVideo)
+                    return true;
+            }
+            return false;
         }
 
         @Override
@@ -540,6 +660,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             photoEntry.emojiMarkup = emojiMarkup;
             photoEntry.gradientTopColor = gradientTopColor;
             photoEntry.gradientBottomColor = gradientBottomColor;
+            photoEntry.videoOffset = videoOffset;
+            photoEntry.collage = collage;
+            photoEntry.collageContent = collageContent;
+            // TODO: if need add missing variables
             photoEntry.copyFrom(this);
             return photoEntry;
         }
@@ -568,6 +692,15 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     new File(path).delete();
                 } catch (Exception ignore) {}
             }
+            if (isCollage()) {
+                for (PhotoEntry photoEntry : collageContent) {
+                    if (photoEntry.path != null) {
+                        try {
+                            new File(photoEntry.path).delete();
+                        } catch (Exception ignore) {}
+                    }
+                }
+            }
             if (fullPaintPath != null) {
                 try {
                     new File(fullPaintPath).delete();
@@ -593,6 +726,59 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     new File(croppedPaintPath).delete();
                 } catch (Exception ignore) {}
             }
+        }
+
+        public void decodeBounds(String path) {
+            if (path != null) {
+                try {
+                    BitmapFactory.Options options = new BitmapFactory.Options();
+                    options.inJustDecodeBounds = true;
+                    BitmapFactory.decodeFile(path, options);
+                    width = options.outWidth;
+                    height = options.outHeight;
+                } catch (Exception ignore) {}
+            }
+            if (!isVideo) {
+                int side = (int) Math.max(width, height / 16f * 9f);
+//            if (side <= (480 + 720) / 2) {
+//                resultWidth = 480;
+//                resultHeight = 853;
+//            } else
+                if (side <= (720 + 1080) / 2) {
+                    editedInfo.resultWidth = 720;
+                    editedInfo.resultHeight = 1280;
+                } else {
+                    editedInfo.resultWidth = 1080;
+                    editedInfo.resultHeight = 1920;
+                }
+            }
+        }
+
+        public void setupMatrix() {
+            setupMatrix(matrix, 0);
+        }
+
+        public void setupMatrix(Matrix matrix, int rotate) {
+            matrix.reset();
+            int width = this.width, height = this.height;
+            int or = orientation + rotate;
+            matrix.postScale(invert == 1 ? -1.0f : 1.0f, invert == 2 ? -1.0f : 1.0f, width / 2f, height / 2f);
+            if (or != 0) {
+                matrix.postTranslate(-width / 2f, -height / 2f);
+                matrix.postRotate(or);
+                if (or == 90 || or == 270) {
+                    final int swap = height;
+                    height = width;
+                    width = swap;
+                }
+                matrix.postTranslate(width / 2f, height / 2f);
+            }
+            float scale = (float) editedInfo.resultWidth / width;
+            if ((float) height / (float) width > 1.29f) {
+                scale = Math.max(scale, (float) editedInfo.resultHeight / height);
+            }
+            matrix.postScale(scale, scale);
+            matrix.postTranslate((editedInfo.resultWidth - width * scale) / 2f, (editedInfo.resultHeight - height * scale) / 2f);
         }
     }
 

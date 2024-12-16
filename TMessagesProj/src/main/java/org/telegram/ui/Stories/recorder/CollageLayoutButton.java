@@ -118,7 +118,9 @@ public class CollageLayoutButton extends ToggleButton2 {
                 @Override
                 public void onViewAttachedToWindow(@NonNull RecyclerView.ViewHolder holder) {
                     Button button = (Button) holder.itemView;
-                    flashViews.add(button);
+                    if (flashViews != null) {
+                        flashViews.add(button);
+                    }
                     if (button.position >= 0 && button.position < CollageLayout.getLayouts().size()) {
                         final CollageLayout layout = CollageLayout.getLayouts().get(button.position);
                         button.setDrawable(new CollageLayoutDrawable(layout));
@@ -129,7 +131,9 @@ public class CollageLayoutButton extends ToggleButton2 {
 
                 @Override
                 public void onViewDetachedFromWindow(@NonNull RecyclerView.ViewHolder holder) {
-                    flashViews.remove((Button) holder.itemView);
+                    if (flashViews != null) {
+                        flashViews.remove((Button) holder.itemView);
+                    }
                     super.onViewDetachedFromWindow(holder);
                 }
 
