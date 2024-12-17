@@ -2787,6 +2787,7 @@ public class StoryRecorder implements NotificationCenter.NotificationCenterDeleg
         recordControl = new RecordControl(context);
         recordControl.setDelegate(recordControlDelegate);
         recordControl.startAsVideo(isVideo);
+        recordControl.setMaxDuration(60 * 1000L);
         controlContainer.addView(recordControl, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 100, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL));
         flashViews.add(recordControl);
         recordControl.setCollageProgress(collageLayoutView.hasLayout() ? collageLayoutView.getFilledProgress() : 0.0f, true);

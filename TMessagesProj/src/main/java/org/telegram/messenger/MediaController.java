@@ -505,6 +505,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         public float left, right = 1;
         public File file;
         public float videoVolume = 1f;
+        public boolean fileDeletable;
 
         public PhotoEntry() {
 
@@ -651,7 +652,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             PhotoEntry entry = new PhotoEntry();
             entry.imageId = imageId;
             entry.file = file;
-            entry.canDeleteAfter = true;
+            entry.fileDeletable = true;
             entry.orientation = rotate == -1 ? 0 : rotate;
             entry.invert = 0;
             entry.isVideo = false;
@@ -669,7 +670,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             entry.imageId = imageId;
             entry.fromCamera = true;
             entry.file = file;
-            entry.canDeleteAfter = true;
+            entry.fileDeletable = true;
             entry.orientation = 0;
             entry.invert = 0;
             entry.isVideo = true;
@@ -739,6 +740,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             photoEntry.file = file;
             photoEntry.videoVolume = videoVolume;
             photoEntry.thumbBitmap = thumbBitmap;
+            photoEntry.fileDeletable = fileDeletable;
             photoEntry.copyFrom(this);
             return photoEntry;
         }
@@ -765,41 +767,48 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             if (path != null) {
                 try {
                     new File(path).delete();
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                }
             }
             if (isCollage()) {
                 for (PhotoEntry photoEntry : collageContent) {
                     if (photoEntry.path != null) {
                         try {
                             new File(photoEntry.path).delete();
-                        } catch (Exception ignore) {}
+                        } catch (Exception ignore) {
+                        }
                     }
                 }
             }
             if (fullPaintPath != null) {
                 try {
                     new File(fullPaintPath).delete();
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                }
             }
             if (paintPath != null) {
                 try {
                     new File(paintPath).delete();
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                }
             }
             if (imagePath != null) {
                 try {
                     new File(imagePath).delete();
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                }
             }
             if (filterPath != null) {
                 try {
                     new File(filterPath).delete();
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                }
             }
             if (croppedPaintPath != null) {
                 try {
                     new File(croppedPaintPath).delete();
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                }
             }
         }
 
@@ -811,7 +820,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     BitmapFactory.decodeFile(path, options);
                     width = options.outWidth;
                     height = options.outHeight;
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                }
             }
             if (!isVideo) {
                 int side = (int) Math.max(width, height / 16f * 9f);
@@ -1142,6 +1152,39 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                 opts.inDensity = opts.outWidth;
                 opts.inTargetDensity = maxWidth;
                 return decode.decode(opts);
+            }
+        }
+
+        public void destroy() {
+            if (file != null) {
+                if (fileDeletable) {
+                    file.delete();
+                }
+                file = null;
+            }
+            if (thumbPath != null) {
+                if (fileDeletable) {
+                    new File(thumbPath).delete();
+                }
+                thumbPath = null;
+            }
+            if (mediaEntities != null) {
+                for (VideoEditedInfo.MediaEntity entity : mediaEntities) {
+                    if (entity.type == VideoEditedInfo.MediaEntity.TYPE_PHOTO && !TextUtils.isEmpty(entity.segmentedPath)) {
+                        try {
+                            new File(entity.segmentedPath).delete();
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        }
+                        entity.segmentedPath = "";
+                    }
+                }
+            }
+
+            if (collageContent != null) {
+                for (int i = 0; i < collageContent.size(); ++i) {
+                    collageContent.get(i).destroy();
+                }
             }
         }
     }

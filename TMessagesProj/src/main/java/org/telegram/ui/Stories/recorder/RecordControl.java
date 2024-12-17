@@ -117,7 +117,9 @@ public class RecordControl extends View implements FlashViews.Invertable {
     private boolean dual;
     private final AnimatedFloat dualT = new AnimatedFloat(this, 0, 330, CubicBezierInterpolator.EASE_OUT_QUINT);
 
-    private static final long MAX_DURATION = 60 * 1000L;
+    private long maxDuration = 60 * 1000L; // default 1 minute
+    private boolean isUnlimited = false;
+
     private long recordingStart;
     private long lastDuration;
 
@@ -181,6 +183,19 @@ public class RecordControl extends View implements FlashViews.Invertable {
         pauseDrawable.setColorFilter(new PorterDuffColorFilter(0xffffffff, PorterDuff.Mode.MULTIPLY));
 
         updateGalleryImage();
+    }
+
+    public void setMaxDuration(long duration) {
+        this.maxDuration = duration;
+        this.isUnlimited = false;
+    }
+
+    public void setUnlimitedDuration() {
+        this.isUnlimited = true;
+    }
+
+    public boolean isUnlimited() {
+        return isUnlimited;
     }
 
     public void updateGalleryImage() {
@@ -434,7 +449,7 @@ public class RecordControl extends View implements FlashViews.Invertable {
 
         long duration = System.currentTimeMillis() - recordingStart;
         float recordEndT = recording ? 0 : 1f - recordingLongT;
-        float sweepAngle = duration / (float) MAX_DURATION * 360;
+        float sweepAngle = isUnlimited ? 0 : duration / (float) maxDuration * 360;
 
         float recordingLoading = this.recordingLoadingT.set(this.recordingLoading);
 
@@ -466,7 +481,7 @@ public class RecordControl extends View implements FlashViews.Invertable {
             if (duration / 1000L != lastDuration / 1000L) {
                 delegate.onVideoDuration(duration / 1000L);
             }
-            if (duration >= MAX_DURATION) {
+            if (!isUnlimited && duration >= maxDuration) {
                 post(() -> {
                     recording = false;
                     longpressRecording = false;
