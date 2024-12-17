@@ -66,6 +66,7 @@ import android.widget.TextView;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -93,6 +94,7 @@ import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.VideoEditedInfo;
+import org.telegram.messenger.VideoEncodingService;
 import org.telegram.messenger.camera.CameraController;
 import org.telegram.messenger.camera.CameraView;
 import org.telegram.tgnet.TLRPC;
@@ -113,6 +115,7 @@ import org.telegram.ui.Stars.StarsIntroActivity;
 import org.telegram.ui.Stories.recorder.AlbumButton;
 import org.telegram.ui.Stories.recorder.CollageLayout;
 import org.telegram.ui.Stories.recorder.CollageLayoutButton;
+import org.telegram.ui.Stories.recorder.DownloadButton;
 import org.telegram.ui.Stories.recorder.DualCameraView;
 import org.telegram.ui.Stories.recorder.FlashViews;
 import org.telegram.ui.Stories.recorder.GalleryListView;
@@ -121,6 +124,7 @@ import org.telegram.ui.Stories.recorder.HintView2;
 import org.telegram.ui.Stories.recorder.PhotoVideoSwitcherView;
 import org.telegram.ui.Stories.recorder.RecordControl;
 import org.telegram.ui.Stories.recorder.SliderView;
+import org.telegram.ui.Stories.recorder.StoryEntry;
 import org.telegram.ui.Stories.recorder.StoryRecorder;
 import org.telegram.ui.Stories.recorder.ToggleButton;
 import org.telegram.ui.Stories.recorder.ToggleButton2;
@@ -706,6 +710,118 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             arrayList = new ArrayList<>(0);
         }
         return arrayList;
+    }
+
+    private DownloadButton.PreparingVideoToast toast;
+
+    public void showToast(int resId, CharSequence text) {
+        if (toast != null) {
+            toast.hide();
+            toast = null;
+        }
+        toast = new DownloadButton.PreparingVideoToast(getContext());
+        toast.setDone(resId, text, 3500);
+        parentAlert.getContainer().addView(toast);
+    }
+
+    public void showFailedVideo() {
+        showToast(R.raw.error, LocaleController.getString("VideoConvertFail"));
+    }
+
+    private static class BuildingVideo implements NotificationCenter.NotificationCenterDelegate {
+
+        final int currentAccount;
+        final MediaController.PhotoEntry entry;
+        final File file;
+
+        private MessageObject messageObject;
+        private final Runnable onDone;
+        private final Utilities.Callback<Float> onProgress;
+        private final Runnable onCancel;
+
+        public BuildingVideo(int account, MediaController.PhotoEntry entry, File file, @NonNull Runnable onDone, @Nullable Utilities.Callback<Float> onProgress, @NonNull Runnable onCancel) {
+            this.currentAccount = account;
+            this.entry = entry;
+            this.file = file;
+            this.onDone = onDone;
+            this.onProgress = onProgress;
+            this.onCancel = onCancel;
+
+            start();
+        }
+
+        public void start() {
+            if (messageObject != null) {
+                return;
+            }
+
+            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.filePreparingStarted);
+            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.fileNewChunkAvailable);
+            NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.filePreparingFailed);
+
+            TLRPC.TL_message message = new TLRPC.TL_message();
+            message.id = 1;
+            message.attachPath = file.getAbsolutePath();
+            messageObject = new MessageObject(currentAccount, message, (MessageObject) null, false, false);
+            entry.getVideoEditedInfo(info -> {
+                if (messageObject == null) {
+                    return;
+                }
+                messageObject.videoEditedInfo = info;
+                MediaController.getInstance().scheduleVideoConvert(messageObject);
+            });
+        }
+
+        public void stop(boolean cancel) {
+            if (messageObject == null) {
+                return;
+            }
+
+            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.filePreparingStarted);
+            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.fileNewChunkAvailable);
+            NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.filePreparingFailed);
+
+            if (cancel) {
+                MediaController.getInstance().cancelVideoConvert(messageObject);
+            }
+            messageObject = null;
+        }
+
+        @Override
+        public void didReceivedNotification(int id, int account, Object... args) {
+            if (id == NotificationCenter.filePreparingStarted) {
+                if ((MessageObject) args[0] == messageObject) {
+
+                }
+            } else if (id == NotificationCenter.fileNewChunkAvailable) {
+                if ((MessageObject) args[0] == messageObject) {
+                    String finalPath = (String) args[1];
+                    long availableSize = (Long) args[2];
+                    long finalSize = (Long) args[3];
+                    float progress = (float) args[4];
+
+                    if (onProgress != null) {
+                        onProgress.run(progress);
+                    }
+
+                    if (finalSize > 0) {
+                        onDone.run();
+                        VideoEncodingService.stop();
+                        stop(false);
+                    }
+                }
+            } else if (id == NotificationCenter.filePreparingFailed) {
+                if ((MessageObject) args[0] == messageObject) {
+                    stop(false);
+                    try {
+                        if (file != null) {
+                            file.delete();
+                        }
+                    } catch (Exception ignore) {}
+                    onCancel.run();
+                }
+            }
+        }
     }
 
     public ChatAttachAlertPhotoLayout(ChatAttachAlert alert, Context context, boolean forceDarkTheme, boolean needCamera, Theme.ResourcesProvider resourcesProvider) {
@@ -1777,13 +1893,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 return;
             }
 
-            if (Build.VERSION.SDK_INT >= 23) {
-                if (getContext().checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                    requestingPermissions = true;
-                    baseFragment.getParentActivity().requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 21);
-                    return;
-                }
-            }
             if (!videoEnabled) {
                 BulletinFactory.of(collageLayoutView, resourcesProvider).createErrorBulletin(LocaleController.getString(R.string.GlobalAttachVideoRestricted)).show();
                 return;
@@ -1905,9 +2014,22 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
         @Override
         public boolean canRecordAudio() {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                return getContext().checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+            BaseFragment baseFragment = parentAlert.baseFragment;
+            if (baseFragment == null) {
+                baseFragment = LaunchActivity.getLastFragment();
             }
+            if (baseFragment == null || baseFragment.getParentActivity() == null) {
+                return false;
+            }
+
+            if (Build.VERSION.SDK_INT >= 23) {
+                if (getContext().checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    requestingPermissions = true;
+                    baseFragment.getParentActivity().requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 21);
+                    return false;
+                }
+            }
+
             return true;
         }
 
@@ -1924,10 +2046,136 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 modeSwitcherView.switchMode(isVideo);
             }
 
+            if (toast != null) {
+                toast.hide();
+                toast = null;
+            }
+            if (buildingVideo != null) {
+                buildingVideo.stop(true);
+                buildingVideo = null;
+            }
+
+            if (outputEntry == null) {
+                return;
+            }
+
+            if (Build.VERSION.SDK_INT >= 23 && (Build.VERSION.SDK_INT <= 28 || BuildVars.NO_SCOPED_STORAGE) && getContext().checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                final Activity activity = AndroidUtilities.findActivity(getContext());
+                if (activity != null) {
+                    activity.requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 113);
+                }
+                return;
+            }
+
             final boolean sameTakePictureOrientation = cameraView.getCameraSession().isSameTakePictureOrientation();
-            openPhotoViewer(outputEntry, sameTakePictureOrientation, false);
+
+            if (outputEntry.wouldBeVideo()) {
+                toast = new DownloadButton.PreparingVideoToast(getContext());
+                toast.setOnCancelListener(() -> {
+                    if (buildingVideo != null) {
+                        buildingVideo.stop(true);
+                        buildingVideo = null;
+                    }
+                    if (toast != null) {
+                        toast.hide();
+                    }
+                });
+                parentAlert.getContainer().addView(toast);
+
+                final File file = AndroidUtilities.generateVideoPath();
+                buildingVideo = new BuildingVideo(parentAlert.currentAccount, outputEntry, file, () -> {
+                    if (outputEntry == null) {
+                        return;
+                    }
+                    toast.setDone(R.raw.ic_save_to_gallery, LocaleController.getString("VideoSavedHint"), 3500);
+
+                    String videoPath = file.getAbsolutePath();
+                    MediaMetadataRetriever mediaMetadataRetriever = null;
+                    long duration = 0;
+                    try {
+                        mediaMetadataRetriever = new MediaMetadataRetriever();
+                        mediaMetadataRetriever.setDataSource(videoPath);
+                        String d = mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+                        if (d != null) {
+                            duration = (int) Math.ceil(Long.parseLong(d) / 1000.0f);
+                        }
+                    } catch (Exception e) {
+                        FileLog.e(e);
+                    } finally {
+                        try {
+                            if (mediaMetadataRetriever != null) {
+                                mediaMetadataRetriever.release();
+                            }
+                        } catch (Exception e) {
+                            FileLog.e(e);
+                        }
+                    }
+                    final Bitmap bitmap = SendMessagesHelper.createVideoThumbnail(videoPath, MediaStore.Video.Thumbnails.MINI_KIND);
+                    String fileName = Integer.MIN_VALUE + "_" + SharedConfig.getLastLocalId() + ".jpg";
+                    final File cacheFile = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), fileName);
+                    try {
+                        FileOutputStream stream = new FileOutputStream(cacheFile);
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 55, stream);
+                    } catch (Throwable e) {
+                        FileLog.e(e);
+                    }
+                    SharedConfig.saveConfig();
+
+                    MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, lastImageId--, 0, videoPath, 0, true, bitmap.getWidth(), bitmap.getHeight(), 0);
+                    entry.duration = (int) duration;
+                    entry.thumbPath = cacheFile.getAbsolutePath();
+                    openPhotoViewer(entry, sameTakePictureOrientation, false);
+                }, progress -> {
+                    if (toast != null) {
+                        toast.setProgress(progress);
+                    }
+                }, () -> {
+                    if (outputEntry == null) {
+                        return;
+                    }
+                    toast.setDone(R.raw.error, LocaleController.getString("VideoConvertFail"), 3500);
+                });
+            } else {
+                final File file = AndroidUtilities.generatePicturePath(false, "png");
+                if (file == null) {
+                    toast.setDone(R.raw.error, LocaleController.getString("UnknownError"), 3500);
+                    return;
+                }
+                Utilities.themeQueue.postRunnable(() -> {
+                    outputEntry.buildPhoto(file);
+                    if (outputEntry == null) {
+                        return;
+                    }
+
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (toast != null) {
+                            toast.hide();
+                            toast = null;
+                        }
+                        toast = new DownloadButton.PreparingVideoToast(getContext());
+                        toast.setDone(R.raw.ic_save_to_gallery, LocaleController.getString("PhotoSavedHint"), 2500);
+                        parentAlert.getContainer().addView(toast);
+
+                        String currentPicturePath = file.getAbsolutePath();
+                        Pair<Integer, Integer> orientation = AndroidUtilities.getImageOrientation(currentPicturePath);
+                        int width = 0, height = 0;
+                        try {
+                            BitmapFactory.Options options = new BitmapFactory.Options();
+                            options.inJustDecodeBounds = true;
+                            BitmapFactory.decodeFile(new File(currentPicturePath).getAbsolutePath(), options);
+                            width = options.outWidth;
+                            height = options.outHeight;
+                        } catch (Exception ignore) {}
+                        MediaController.PhotoEntry photoEntry = new MediaController.PhotoEntry(0, lastImageId--, 0, currentPicturePath, orientation.first, false, width, height, 0).setOrientation(orientation);
+                        photoEntry.canDeleteAfter = true;
+                        openPhotoViewer(photoEntry, sameTakePictureOrientation, false);
+                    });
+                });
+            }
         }
     };
+
+    private BuildingVideo buildingVideo;
 
     public void takePicture(Utilities.Callback<Runnable> done) {
         if (cameraView == null || parentAlert == null || parentAlert.isDismissed()) {
@@ -2101,7 +2349,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
             if (collageLayoutView.hasLayout()) {
                 outputFile = null;
-                photoEntry.editedInfo.volume = 1.0f;
+                photoEntry.videoVolume = 1.0f;
                 if (collageLayoutView.push(photoEntry)) {
                     outputEntry = MediaController.PhotoEntry.asCollage(collageLayoutView.getLayout(), collageLayoutView.getContent());
                     fromGallery = false;
@@ -2524,7 +2772,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 MediaController.PhotoEntry photoEntry = (MediaController.PhotoEntry) cameraPhotos.get(a);
                 if (photoEntry.isCollage()) {
                     for (MediaController.PhotoEntry entry : photoEntry.collageContent) {
-                        new File(entry.path).delete();
+                        entry.file.delete();
                         if (entry.imagePath != null) {
                             new File(entry.imagePath).delete();
                         }
@@ -2705,8 +2953,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                         MediaController.PhotoEntry photoEntry = (MediaController.PhotoEntry) cameraPhotos.get(a);
                         if (photoEntry.isCollage()) {
                             for (MediaController.PhotoEntry entry : photoEntry.collageContent) {
-                                new File(entry.path).delete();
-
+                                entry.file.delete();
                                 if (entry.imagePath != null) {
                                     new File(entry.imagePath).delete();
                                 }

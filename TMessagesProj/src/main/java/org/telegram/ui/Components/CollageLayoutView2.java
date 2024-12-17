@@ -597,13 +597,13 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
         if (content != null && content.isVideo) {
             boolean hasUnmuted = false;
             for (Part part : parts) {
-                if (part.content != null && part.content.isVideo && part.content.editedInfo.volume > 0) {
+                if (part.content != null && part.content.isVideo && part.content.videoVolume > 0) {
                     hasUnmuted = true;
                     break;
                 }
             }
             if (hasUnmuted) {
-                content.editedInfo.volume = 0.0f;
+                content.videoVolume = 0.0f;
             }
         }
         if (currentPart != null) {
@@ -735,7 +735,7 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
             cancelGestures.run();
         }
         if (longPressedPart.videoPlayer != null) {
-            longPressedPart.videoPlayer.setVolume(longPressedPart.content.editedInfo.volume);
+            longPressedPart.videoPlayer.setVolume(longPressedPart.content.videoVolume);
         }
 
         FrameLayout hintLayout = new FrameLayout(getContext());
@@ -755,11 +755,11 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
             final SliderView volumeSlider =
                 new SliderView(getContext(), SliderView.TYPE_VOLUME)
                     .setMinMax(0, 1.5f)
-                    .setValue(longPressedPart.content.editedInfo.volume)
+                    .setValue(longPressedPart.content.videoVolume)
                     .setOnValueChange(volume -> {
-                        longPressedPart.content.editedInfo.volume = volume;
+                        longPressedPart.content.videoVolume = volume;
                         if (longPressedPart.videoPlayer != null) {
-                            longPressedPart.videoPlayer.setVolume(longPressedPart.content.editedInfo.volume);
+                            longPressedPart.videoPlayer.setVolume(longPressedPart.content.videoVolume);
                         }
                     });
             volumeSlider.fixWidth = dp(220);
@@ -1023,8 +1023,8 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
             if (content == null) {
                 imageReceiver.clearImage();
             } else if (content.isVideo) {
-                if (content.editedInfo.thumb != null) {
-                    imageReceiver.setImageBitmap(content.editedInfo.thumb);
+                if (content.thumbBitmap != null) {
+                    imageReceiver.setImageBitmap(content.thumbBitmap);
                 } else if (content.thumbPath != null) {
                     imageReceiver.setImage(content.thumbPath, filter, null, null, 0);
                 } else {
@@ -1063,15 +1063,15 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
                 };
                 videoPlayer.allowMultipleInstances(true);
                 videoPlayer.with(textureView);
-                videoPlayer.preparePlayer(Uri.fromFile(new File(content.path)), false, 1.0f);
-                videoPlayer.setVolume(isMuted || content.editedInfo.muted || !preview ? 0.0f : content.editedInfo.volume);
+                videoPlayer.preparePlayer(Uri.fromFile(content.file), false, 1.0f);
+                videoPlayer.setVolume(isMuted || content.muted || !preview ? 0.0f : content.videoVolume);
                 if (!preview || playing) {
                     videoPlayer.play();
                 } else {
                     videoPlayer.pause();
                 }
             } else {
-                imageReceiver.setImage(content.path, filter, null, null, 0);
+                imageReceiver.setImage(content.file.getAbsolutePath(), filter, null, null, 0);
             }
             invalidate();
         }
@@ -1207,7 +1207,7 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
         if (!preview) return 0;
         long position = getPosition();
         final Part mainPart = getMainPart();
-        final long generalOffset = mainPart == null ? 0 : mainPart.content.videoOffset + (long) (mainPart.content.editedInfo.start * mainPart.content.duration);
+        final long generalOffset = mainPart == null ? 0 : mainPart.content.videoOffset + (long) (mainPart.content.left * mainPart.content.duration);
         return getPosition() + generalOffset;
     }
 
@@ -1255,7 +1255,7 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
         if (!preview) return 1;
         Part mainPart = getMainPart();
         if (mainPart == null || mainPart.content == null) return 1;
-        long duration = (long) (mainPart.content.duration * (mainPart.content.editedInfo.end - mainPart.content.editedInfo.start));
+        long duration = (long) (mainPart.content.duration * (mainPart.content.right - mainPart.content.left));
         duration = Math.min(duration, 59_500);
         duration = Math.max(duration, 1);
         return duration;
@@ -1279,14 +1279,14 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
     private final Runnable syncRunnable = () -> {
         final long position = getPosition();
         final Part mainPart = getMainPart();
-        final long generalOffset = mainPart == null ? 0 : mainPart.content.videoOffset + (long) (mainPart.content.editedInfo.start * mainPart.content.duration);
+        final long generalOffset = mainPart == null ? 0 : mainPart.content.videoOffset + (long) (mainPart.content.left * mainPart.content.duration);
         for (int i = 0; i < parts.size(); ++i) {
             final Part part = parts.get(i);
             if (part.content != null && part.videoPlayer != null) {
                 final long duration = part.videoPlayer.getDuration();
                 long frame = Utilities.clamp(position + generalOffset - part.content.videoOffset, duration, 0);
-                final boolean shouldPlay = (!preview || playing) && frame > part.content.editedInfo.start * duration && frame < part.content.editedInfo.end * duration;
-                frame = Utilities.clamp(frame, (long) (part.content.editedInfo.end * duration), (long) (part.content.editedInfo.start * duration));
+                final boolean shouldPlay = (!preview || playing) && frame > part.content.left * duration && frame < part.content.right * duration;
+                frame = Utilities.clamp(frame, (long) (part.content.right * duration), (long) (part.content.left * duration));
                 if (part.videoPlayer.isPlaying() != shouldPlay) {
                     if (shouldPlay) {
                         part.videoPlayer.play();
@@ -1294,7 +1294,7 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
                         part.videoPlayer.pause();
                     }
                 }
-                part.videoPlayer.setVolume(isMuted || part.content.editedInfo.muted || !preview ? 0.0f : part.content.editedInfo.volume);
+                part.videoPlayer.setVolume(isMuted || part.content.muted || !preview ? 0.0f : part.content.videoVolume);
                 final long currentPosition = part.pendingSeek >= 0 ? part.pendingSeek : part.videoPlayer.getCurrentPosition();
                 if (Math.abs(currentPosition - frame) > 450 && part.pendingSeek < 0) {
                     part.videoPlayer.seekTo(part.pendingSeek = frame, fastSeek, () -> {
