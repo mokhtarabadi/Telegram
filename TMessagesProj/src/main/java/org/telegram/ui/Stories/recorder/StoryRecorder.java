@@ -2784,7 +2784,7 @@ public class StoryRecorder implements NotificationCenter.NotificationCenterDeleg
             MediaController.loadGalleryPhotosAlbums(0);
         }
 
-        recordControl = new RecordControl(context);
+        recordControl = new RecordControl(context, true);
         recordControl.setDelegate(recordControlDelegate);
         recordControl.startAsVideo(isVideo);
         recordControl.setMaxDuration(60 * 1000L);
@@ -4687,7 +4687,7 @@ public class StoryRecorder implements NotificationCenter.NotificationCenterDeleg
         if (toPage == PAGE_CAMERA && showSavedDraftHint) {
             getDraftSavedHint().setVisibility(View.VISIBLE);
             getDraftSavedHint().show();
-            recordControl.updateGalleryImage();
+            recordControl.updateGalleryImage(true);
         }
         showSavedDraftHint = false;
 
@@ -6264,7 +6264,7 @@ public class StoryRecorder implements NotificationCenter.NotificationCenterDeleg
             captionEdit.onResume();
         }
         if (recordControl != null) {
-            recordControl.updateGalleryImage();
+            recordControl.updateGalleryImage(true);
         }
         if (previewHighlight != null) {
             previewHighlight.updateCount();
@@ -6389,7 +6389,7 @@ public class StoryRecorder implements NotificationCenter.NotificationCenterDeleg
     public void didReceivedNotification(int id, int account, Object... args) {
         if (id == NotificationCenter.albumsDidLoad) {
             if (recordControl != null) {
-                recordControl.updateGalleryImage();
+                recordControl.updateGalleryImage(true);
             }
             if (lastGallerySelectedAlbum != null && MediaController.allMediaAlbums != null) {
                 for (int a = 0; a < MediaController.allMediaAlbums.size(); a++) {
@@ -6402,7 +6402,7 @@ public class StoryRecorder implements NotificationCenter.NotificationCenterDeleg
             }
         } else if (id == NotificationCenter.storiesDraftsUpdated) {
             if (recordControl != null && !showSavedDraftHint) {
-                recordControl.updateGalleryImage();
+                recordControl.updateGalleryImage(true);
             }
         } else if (id == NotificationCenter.storiesLimitUpdate) {
             if (currentPage == PAGE_PREVIEW) {

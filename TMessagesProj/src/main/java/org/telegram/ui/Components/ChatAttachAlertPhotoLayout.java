@@ -1418,7 +1418,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         controlContainer.setVisibility(View.GONE);
         controlContainer.setAlpha(0.0f);
 
-        recordControl = new RecordControl(context);
+        recordControl = new RecordControl(context, false);
         recordControl.setDelegate(recordControlDelegate);
         recordControl.startAsVideo(isVideo);
         recordControl.setUnlimitedDuration();
@@ -1968,6 +1968,8 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 return;
             }
 
+            final boolean sameTakePictureOrientation = cameraView.getCameraSession().isSameTakePictureOrientation();
+
             if (outputEntry.wouldBeVideo()) {
                 toast = new DownloadButton.PreparingVideoToast(getContext());
                 toast.setOnCancelListener(() -> {
@@ -2019,7 +2021,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                     entry.duration = (int) duration;
                     entry.thumbPath = cacheFile.getAbsolutePath();
                     entry.canDeleteAfter = true;
-                    openPhotoViewer(entry, false, true);
+                    openPhotoViewer(entry, sameTakePictureOrientation, true);
                 }, progress -> {
                     if (toast != null) {
                         toast.setProgress(progress);
@@ -2064,7 +2066,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                         } catch (Exception ignore) {}
                         MediaController.PhotoEntry photoEntry = new MediaController.PhotoEntry(0, lastImageId--, 0, currentPicturePath, orientation.first, false, width, height, 0).setOrientation(orientation);
                         photoEntry.canDeleteAfter = true;
-                        openPhotoViewer(photoEntry, false, true);
+                        openPhotoViewer(photoEntry, sameTakePictureOrientation, true);
                     });
                 });
             }
@@ -2956,11 +2958,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                     adapter.notifyDataSetChanged();
                     cameraAttachAdapter.notifyDataSetChanged();
                     parentAlert.updateCountButton(0);
-
-                    if (collageLayoutView != null) {
-                        collageLayoutView.clear(true);
-                        recordControl.setCollageProgress(0.0f, false);
-                    }
                 }
                 return true;
             }
@@ -2979,11 +2976,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 cameraPhotoRecyclerView.setVisibility(View.VISIBLE);
                 counterTextView.setAlpha(1.0f);
                 updatePhotosCounter(false);
-
-                if (collageLayoutView != null) {
-                    collageLayoutView.clear(true);
-                    recordControl.setCollageProgress(0.0f, false);
-                }
             }
 
             @Override
@@ -3014,10 +3006,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 adapter.notifyDataSetChanged();
                 cameraAttachAdapter.notifyDataSetChanged();
                 parentAlert.dismiss(true);
-
-                if (collageLayoutView != null) {
-                    collageLayoutView.clear(true);
-                }
             }
 
             @Override
@@ -3297,6 +3285,12 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             gridView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         }
 
+        if (collageLayoutView != null) {
+            collageLayoutView.clear(true);
+            recordControl.setCollageProgress(0.0f, false);
+        }
+        updateActionBarButtons(animated);
+
         if (!LiteMode.isEnabled(LiteMode.FLAGS_CHAT) && cameraView != null && cameraView.isInited()) {
             cameraView.showTexture(true, animated);
         }
@@ -3342,7 +3336,10 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
             @Override
             public boolean onTouchEvent(MotionEvent event) {
-                return false;
+                if (!cameraOpened) {
+                    return false;
+                }
+                return super.onTouchEvent(event);
             }
 
             @Override
@@ -3499,6 +3496,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             if (collageLayoutView != null) {
                 collageLayoutView.setCameraView(null);
             }
+
             cameraView = null;
         }, 300);
         canSaveCameraPreview = false;
@@ -3637,9 +3635,12 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         }
         animateCameraValues[1] = itemSize;
         animateCameraValues[2] = itemSize;
-        if (collageLayoutView != null) {
+
+        if (collageLayoutView.hasContent()) {
             collageLayoutView.clear(true);
+            updateActionBarButtons(animated);
         }
+
         AndroidUtilities.setLightNavigationBar(parentAlert.getWindow(), AndroidUtilities.computePerceivedBrightness(getThemedColor(Theme.key_windowBackgroundGray)) > 0.721);
         if (animated) {
             additionCloseCameraY = collageLayoutView.getTranslationY();
@@ -4374,7 +4375,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         if (parentAlert.isShowing() && !parentAlert.isDismissed() && !PhotoViewer.getInstance().isVisible()) {
             checkCamera(false);
             if (recordControl != null) {
-                recordControl.updateGalleryImage();
+                recordControl.updateGalleryImage(false);
             }
         }
     }
@@ -4906,12 +4907,10 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             scrollingX = false;
         }
 
-        if (!pressed && event.getActionMasked() == MotionEvent.ACTION_DOWN || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
-            if (!takingPhoto && !dragging) {
-                if (event.getPointerCount() != 2) {
-                    maybeStartDraging = true;
-                    lastY = event.getY();
-                }
+        if (!pressed && (event.getActionMasked() == MotionEvent.ACTION_DOWN || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN)) {
+            if (!takingPhoto && !dragging && event.getPointerCount() != 2) {
+                maybeStartDraging = true;
+                lastY = event.getY();
                 pressed = true;
             }
         } else if (pressed) {
@@ -4924,27 +4923,23 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                             maybeStartDraging = false;
                             dragging = true;
                         }
-                    } else if (dragging) {
-                        if (collageLayoutView != null) {
-                            collageLayoutView.setTranslationY(collageLayoutView.getTranslationY() + dy);
-                            lastY = newY;
-                            if (collageLayoutView.getTag() == null) {
-                                collageLayoutView.setTag(1);
-                                animatedCloseCamera();
-                            }
+                    } else if (dragging && collageLayoutView != null) {
+                        collageLayoutView.setTranslationY(collageLayoutView.getTranslationY() + dy);
+                        lastY = newY;
+                        if (collageLayoutView.getTag() == null) {
+                            collageLayoutView.setTag(1);
+                            animatedCloseCamera();
                         }
                     }
                 }
             } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL || event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_POINTER_UP) {
                 pressed = false;
-                if (dragging) {
+                if (dragging && collageLayoutView != null) {
                     dragging = false;
-                    if (collageLayoutView != null) {
-                        if (Math.abs(collageLayoutView.getTranslationY()) > collageLayoutView.getMeasuredHeight() / 6.0f) {
-                            closeCamera(true);
-                        } else {
-                            animatedOpenCamera();
-                        }
+                    if (Math.abs(collageLayoutView.getTranslationY()) > collageLayoutView.getMeasuredHeight() / 6.0f) {
+                        closeCamera(true);
+                    } else {
+                        animatedOpenCamera();
                     }
                 }
             }
@@ -5138,10 +5133,14 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 return true;
             }
         } else if (view == actionBarContainer) {
-            actionBarContainer.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(150), MeasureSpec.EXACTLY));
+            if (isPortrait) {
+                actionBarContainer.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(dp(150), View.MeasureSpec.EXACTLY));
+            } else {
+                actionBarContainer.measure(View.MeasureSpec.makeMeasureSpec(dp(150), MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
+            }
             return true;
         } else if (view == controlContainer) {
-            controlContainer.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(220), MeasureSpec.EXACTLY));
+            controlContainer.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(dp(220), View.MeasureSpec.EXACTLY));
             return true;
         }  else if (view == navbarContainer) {
             navbarContainer.measure(View.MeasureSpec.makeMeasureSpec(width , View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(dp(48), View.MeasureSpec.EXACTLY));
@@ -5176,7 +5175,12 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         boolean isPortrait = width < height;
 
         if (view == actionBarContainer) {
-            actionBarContainer.layout(0, 0, width, dp(150));
+            if (isPortrait) {
+                actionBarContainer.layout(0, dp(8), width, dp(150));
+            } else {
+                actionBarContainer.layout(dp(8), 0, dp(150), height);
+            }
+            return true;
         } else if (view == controlContainer) {
             int controlTop;
             int controlLeft;
@@ -5261,6 +5265,10 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                     }
                 }
                 updateAlbumsDropDown();
+            }
+
+            if (recordControl != null) {
+                recordControl.updateGalleryImage(false);
             }
         } else if (id == NotificationCenter.cameraInitied) {
             checkCamera(false);

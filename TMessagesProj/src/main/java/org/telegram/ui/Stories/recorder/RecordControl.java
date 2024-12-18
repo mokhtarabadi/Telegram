@@ -128,7 +128,7 @@ public class RecordControl extends View implements FlashViews.Invertable {
     private final Point check2 = new Point(-dpf2(8.5f/3.0f), dpf2(26/3.0f));
     private final Point check3 = new Point(dpf2(29/3.0f), dpf2(-11/3.0f));
 
-    public RecordControl(Context context) {
+    public RecordControl(Context context, boolean story) {
         super(context);
 
         setWillNotDraw(false);
@@ -182,7 +182,7 @@ public class RecordControl extends View implements FlashViews.Invertable {
         pauseDrawable = context.getResources().getDrawable(R.drawable.msg_round_pause_m).mutate();
         pauseDrawable.setColorFilter(new PorterDuffColorFilter(0xffffffff, PorterDuff.Mode.MULTIPLY));
 
-        updateGalleryImage();
+        updateGalleryImage(story);
     }
 
     public void setMaxDuration(long duration) {
@@ -198,13 +198,15 @@ public class RecordControl extends View implements FlashViews.Invertable {
         return isUnlimited;
     }
 
-    public void updateGalleryImage() {
+    public void updateGalleryImage(boolean story) {
         final String filter = "80_80";
-        ArrayList<StoryEntry> drafts = MessagesController.getInstance(galleryImage.getCurrentAccount()).getStoriesController().getDraftsController().drafts;
-        galleryImage.setOrientation(0, 0, true);
-        if (drafts != null && !drafts.isEmpty() && drafts.get(0).draftThumbFile != null) {
-            galleryImage.setImage(ImageLocation.getForPath(drafts.get(0).draftThumbFile.getAbsolutePath()), filter, null, null, noGalleryDrawable, 0, null, null, 0);
-            return;
+        if (story) {
+            ArrayList<StoryEntry> drafts = MessagesController.getInstance(galleryImage.getCurrentAccount()).getStoriesController().getDraftsController().drafts;
+            galleryImage.setOrientation(0, 0, true);
+            if (drafts != null && !drafts.isEmpty() && drafts.get(0).draftThumbFile != null) {
+                galleryImage.setImage(ImageLocation.getForPath(drafts.get(0).draftThumbFile.getAbsolutePath()), filter, null, null, noGalleryDrawable, 0, null, null, 0);
+                return;
+            }
         }
         MediaController.AlbumEntry albumEntry = MediaController.allMediaAlbumEntry;
         MediaController.PhotoEntry photoEntry = null;
