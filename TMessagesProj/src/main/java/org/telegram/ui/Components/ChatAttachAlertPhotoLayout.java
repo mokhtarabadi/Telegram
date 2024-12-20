@@ -1611,10 +1611,10 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         collageRemoveButton.setTranslationX(-right); right += dp(46) * collageRemoveButton.getAlpha();
         dualButton.setTranslationX(-right);          right += dp(46) * dualButton.getAlpha();
         collageButton.setTranslationX(-right);       right += dp(46) * collageButton.getAlpha();
+        flashButton.setTranslationX(-right);         right += dp(46) * flashButton.getAlpha();
 
         float left = 0;
         closeButton.setTranslationX(left); left += dp(46) * closeButton.getAlpha();
-        flashButton.setTranslationX(left); left += dp(46) * flashButton.getAlpha();
 
         collageListView.setBounds(left + dp(8), right + dp(8));
     }
@@ -2953,7 +2953,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 if (cameraOpened && cameraView != null) {
                     AndroidUtilities.runOnUIThread(() -> {
                         if (collageLayoutView != null && !parentAlert.isDismissed() && Build.VERSION.SDK_INT >= 21) {
-                            collageLayoutView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_FULLSCREEN);
+                            collageLayoutView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
                         }
                     }, 1000);
                     zoomControlView.setZoom(0.0f, false);
@@ -3721,7 +3721,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                     if (cameraPhotoRecyclerView != null) {
                         cameraPhotoRecyclerView.setVisibility(View.GONE);
                     }
-                    if (cameraView != null) {
+                    if (collageLayoutView != null) {
                         if (Build.VERSION.SDK_INT >= 21) {
                             collageLayoutView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_VISIBLE);
                         }
@@ -3745,7 +3745,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             counterTextView.setAlpha(0);
             cameraPhotoRecyclerView.setVisibility(View.GONE);
             cameraOpened = false;
-            if (cameraView != null) {
+            if (collageLayoutView != null) {
                 if (Build.VERSION.SDK_INT >= 21) {
                     collageLayoutView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_VISIBLE);
                 }
