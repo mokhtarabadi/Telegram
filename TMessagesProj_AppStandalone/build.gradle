@@ -80,7 +80,7 @@ android {
             jniDebuggable false
             signingConfig signingConfigs.release
             applicationIdSuffix ".web"
-            minifyEnabled false
+            minifyEnabled true
             multiDexEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), '../TMessagesProj/proguard-rules.pro'
             ndk.debugSymbolLevel = 'FULL'
