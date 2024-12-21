@@ -201,7 +201,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
     protected FrameLayout cameraIcon;
     protected PhotoAttachCameraCell cameraCell;
     private float[] collageViewLocation = new float[2];
-    private int[] viewPosition = new int[2];
     private float collageViewOffsetX;
     private float collageViewOffsetY;
     private float collageViewOffsetBottomY;
@@ -734,7 +733,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             Bulletin.Delegate bulletinDelegate = new Bulletin.Delegate() {
                 @Override
                 public int getBottomOffset(int tag) {
-                    return dp(220) + parentAlert.getBottomInset();
+                    return dp(160) + parentAlert.getBottomInset();
                 }
             };
 
@@ -752,6 +751,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
             @Override
             public boolean dispatchTouchEvent(MotionEvent event) {
+                FileLog.d("collageLayoutView:dispatchTouchEvent");
                 return false;
             }
 
@@ -1421,29 +1421,33 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             progressView.showTextView();
         }
 
+        zoomControlView = new ZoomControlView(context);
+        zoomControlView.enabledTouch = false;
+        zoomControlView.setAlpha(0.0f);
+        container.addView(zoomControlView); // 50dp
+        zoomControlView.setDelegate(zoom -> {
+            if (cameraView != null) {
+                cameraView.setZoom(cameraZoom = zoom);
+            }
+            showZoomControls(true, true);
+        });
+        zoomControlView.setZoom(cameraZoom = 0, false);
+
         container.addView(controlContainer = new FrameLayout(context) {
             @Override
-            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-            }
-
-            @Override
             protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-                int width = getMeasuredWidth();
-                int height = getMeasuredHeight();
-                boolean isPortrait = height == dp(220);
-
+                boolean isPortrait = getMeasuredHeight() == dp(160);
                 if (isPortrait) {
-                    recordControl.layout(0, height - dp(100), width, height);
-                    cameraHint.layout(0, height - dp(100) - cameraHint.getMeasuredHeight(), width, height - dp(100));
-                    zoomControlView.layout(0, height - dp(100 + 8 + 50), width, height - dp(100 + 8));
-                }  else {
-                    recordControl.layout(width - dp(100), 0, width, height);
-                    cameraHint.layout(width - dp(100) - cameraHint.getMeasuredWidth(), 0, width - dp(100), cameraHint.getMeasuredHeight());
-                    zoomControlView.layout(width - dp(100 + 8 + 50), 0, width - dp(100 + 8), zoomControlView.getMeasuredHeight());
+                    recordControl.layout(0, getMeasuredHeight() - dp(100), getMeasuredWidth(), getMeasuredHeight());
+                    cameraHint.layout(0, getMeasuredHeight() - dp(100) - cameraHint.getMeasuredHeight(), getMeasuredWidth(), getMeasuredHeight() - dp(100));
+                    cameraHint.setRotation(0);
+                } else {
+                    recordControl.layout(getMeasuredWidth() - dp(100), 0, getMeasuredWidth(), getMeasuredHeight());
+                    cameraHint.layout(getMeasuredWidth() - dp(100) - cameraHint.getMeasuredWidth(), 0, getMeasuredWidth() - dp(100), getMeasuredHeight());
+                    cameraHint.setRotation(-90);
                 }
             }
-        }); // 220dp
+        }); // 160dp
         controlContainer.setVisibility(View.GONE);
         controlContainer.setAlpha(0.0f);
 
@@ -1451,7 +1455,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         recordControl.setDelegate(recordControlDelegate);
         recordControl.startAsVideo(isVideo);
         recordControl.setUnlimitedDuration();
-        controlContainer.addView(recordControl, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 100, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL));
+        controlContainer.addView(recordControl);
         flashViews.add(recordControl);
         recordControl.setCollageProgress(collageLayoutView.hasLayout() ? collageLayoutView.getFilledProgress() : 0.0f, true);
 
@@ -1461,19 +1465,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 .setMaxWidth(320)
                 .setDuration(5000L)
                 .setTextAlign(Layout.Alignment.ALIGN_CENTER);
-        controlContainer.addView(cameraHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.BOTTOM, 0, 0, 0, 100));
-
-        zoomControlView = new ZoomControlView(context);
-        zoomControlView.enabledTouch = false;
-        zoomControlView.setAlpha(0.0f);
-        controlContainer.addView(zoomControlView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 50, Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM));
-        zoomControlView.setDelegate(zoom -> {
-            if (cameraView != null) {
-                cameraView.setZoom(cameraZoom = zoom);
-            }
-            showZoomControls(true, true);
-        });
-        zoomControlView.setZoom(cameraZoom = 0, false);
+        controlContainer.addView(cameraHint);
 
         container.addView(navbarContainer = new FrameLayout(context)); // 48dp
         navbarContainer.setAlpha(0.0f);
@@ -2955,6 +2947,11 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             parentAlert.getAvatarFor().isVideo = entry.isVideo;
         }
 
+        if (index < 0) {
+            FileLog.e("openPhotoViewer: index < 0");
+            return;
+        }
+
         PhotoViewer.getInstance().openPhotoForSelect(arrayList, index, type, false, new BasePhotoProvider() {
 
             @Override
@@ -3392,7 +3389,8 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         cameraView = new DualCameraView(getContext(), isCameraFrontfaceBeforeEnteringEditMode != null ? isCameraFrontfaceBeforeEnteringEditMode : parentAlert.openWithFrontFaceCamera, lazy) {
 
             @Override
-            public boolean onTouchEvent(MotionEvent ev) {
+            public boolean dispatchTouchEvent(MotionEvent ev) {
+                FileLog.d("cameraView:dispatchTouchEvent");
                 return false;
             }
 
@@ -4933,10 +4931,23 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         animatorSet.start();
     }
 
+    private int[] viewPosition = new int[2];
+
     private boolean processTouchEvent(MotionEvent event) {
         if (event == null) {
             return false;
         }
+
+        if (recordControl.isTouch() || cameraView != null && cameraView.isDualTouch() || scaling || zoomControlView != null && zoomControlView.isTouch() || inCheck()) {
+            return false;
+        }
+
+        if (takingVideo || takingPhoto) {
+            return true;
+        }
+
+        showZoomControls(true, false);
+        cameraHint.show(true);
 
         if (!pressed && (event.getActionMasked() == MotionEvent.ACTION_DOWN || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN)) {
             if (!takingPhoto && !dragging) {
@@ -4994,7 +5005,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                     cameraView.getLocationOnScreen(viewPosition);
                     float viewX = event.getRawX() - viewPosition[0];
                     float viewY = event.getRawY() - viewPosition[1];
-                    cameraView.focusToPoint((int) viewX, (int) viewY);
+                    //cameraView.focusToPoint((int) viewX, (int) viewY);
                 }
                 maybeStartDraging = false;
                 if (collageLayoutView != null) {
@@ -5011,6 +5022,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
     @Override
     public boolean onContainerViewTouchEvent(MotionEvent event) {
+        FileLog.d("collageLayoutView:onTouchEvent");
         if (cameraAnimationInProgress) {
             return true;
         }
@@ -5210,6 +5222,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
     @Override
     public boolean onCustomMeasure(View view, int width, int height) {
+        height += parentAlert.getBottomInset();
         boolean isPortrait = width < height;
 
         if (view == cameraIcon) {
@@ -5217,7 +5230,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             return true;
         } else if (view == collageLayoutView) {
             if (cameraOpened && !cameraAnimationInProgress) {
-                collageLayoutView.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height + parentAlert.getBottomInset(), View.MeasureSpec.EXACTLY));
+                collageLayoutView.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
                 return true;
             }
         } else if (view == flashViews.backgroundView) {
@@ -5232,9 +5245,9 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             return true;
         } else if (view == controlContainer) {
             if (isPortrait) {
-                controlContainer.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(dp(220), View.MeasureSpec.EXACTLY));
+                controlContainer.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(dp(160), View.MeasureSpec.EXACTLY));
             } else {
-                controlContainer.measure(View.MeasureSpec.makeMeasureSpec(dp(220), View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
+                controlContainer.measure(View.MeasureSpec.makeMeasureSpec(dp(160), View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
             }
             return true;
         } else if (view == navbarContainer) {
@@ -5272,9 +5285,12 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
     @Override
     public boolean onCustomLayout(View view, int left, int top, int right, int bottom) {
+        bottom += parentAlert.getBottomInset();
+
         int width = (right - left);
-        int height = (bottom - top) + parentAlert.getBottomInset();
+        int height = (bottom - top);
         boolean isPortrait = width < height;
+        FileLog.d(String.format("onCustomLayout width:%d height:%d isPortrait:%b left:%d top:%d right:%d bottom:%d bottomInset:%d rightInset:%d leftInset:%d", width, height, isPortrait, left, top, right, bottom, parentAlert.getBottomInset(), parentAlert.getRightInset(), parentAlert.getLeftInset()));
 
         if (view == videoTimerView) {
             int cx = width / 2;
@@ -5283,35 +5299,31 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         } else if (view == actionBarContainer) {
             if (isPortrait) {
                 actionBarContainer.layout(0, dp(8), width, dp(150 + 8));
-                actionBarContainer.setRotation(0);
             } else {
                 actionBarContainer.layout(dp(8), 0, dp(8 + 150), height);
-                actionBarContainer.setRotation(90);
             }
             return true;
         } else if (view == controlContainer) {
             if (isPortrait) {
                 if (cameraPhotoRecyclerView.getVisibility() == View.VISIBLE) {
-                    controlContainer.layout(0, height - dp(48 + 80 + 8 + 220), width, height - dp(48 + 80 + 8));
+                    controlContainer.layout(0, height - dp(48 + 80 + 8 + 160), width, height - dp(48 + 80 + 8));
                 } else {
-                    controlContainer.layout(0, height - dp(48 + 8 + 220), width, height - dp(48 + 8));
+                    controlContainer.layout(0, height - dp(48 + 8 + 160), width, height - dp(48 + 8));
                 }
-                controlContainer.setRotation(0);
             } else {
                 if (cameraPhotoRecyclerView.getVisibility() == View.VISIBLE) {
-                    controlContainer.layout(width - dp(8 + 80 + 8 + 220), 0, width - dp(8 + 80 + 8), height);
+                    controlContainer.layout(width - dp(8 + 80 + 8 + 160), 0, width - dp(8 + 80 + 8), height);
                 } else {
-                    controlContainer.layout(width - dp(8 + 220), 0, width - dp(8), height);
+                    controlContainer.layout(width - dp(8 + 160), 0, width - dp(8), height);
                 }
-                controlContainer.setRotation(-90);
             }
             return true;
         } else if (view == navbarContainer) {
             navbarContainer.layout(0, height - dp(48), width, height);
             return true;
         } else if (view == counterTextView) {
+            int zoomViewOffset = zoomControlView.getAlpha() == 1 ? dp(50) : 0;
             if (isPortrait) {
-                int zoomViewOffset = zoomControlView.getAlpha() == 1 ? dp(50) : 0;
                 int cx = width / 2;
                 if (cameraPhotoRecyclerView.getVisibility() == View.VISIBLE) {
                     counterTextView.layout(cx - (counterTextView.getMeasuredWidth() / 2), height - dp(48 + 80 + 8 + 100 + 8) - zoomViewOffset - counterTextView.getMeasuredHeight(), cx + (counterTextView.getMeasuredWidth() / 2), height - dp(48 + 80 + 8 + 100 + 8) - zoomViewOffset);
@@ -5321,9 +5333,9 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             } else {
                 int cy = height / 2;
                 if (cameraPhotoRecyclerView.getVisibility() == View.VISIBLE) {
-                    counterTextView.layout(width - dp(8 + 80 + 8 + 100 + 8) - counterTextView.getMeasuredWidth(), cy - (counterTextView.getMeasuredHeight() / 2), width - dp(8 + 80 + 8 + 100 + 8), cy + (counterTextView.getMeasuredHeight() / 2));
+                    counterTextView.layout(width - dp(8 + 80 + 8 + 100 + 8) - counterTextView.getMeasuredWidth() - zoomViewOffset, cy - (counterTextView.getMeasuredHeight() / 2), width - dp(8 + 80 + 8 + 100 + 8) - zoomViewOffset, cy + (counterTextView.getMeasuredHeight() / 2));
                 } else {
-                    counterTextView.layout(width - dp(8 + 100 + 8) - counterTextView.getMeasuredWidth(), cy - (counterTextView.getMeasuredHeight() / 2), width - dp(8 + 100 + 8), cy + (counterTextView.getMeasuredHeight() / 2));
+                    counterTextView.layout(width - dp(8 + 100 + 8) - counterTextView.getMeasuredWidth() - zoomViewOffset, cy - (counterTextView.getMeasuredHeight() / 2), width - dp(8 + 100 + 8) - zoomViewOffset, cy + (counterTextView.getMeasuredHeight() / 2));
                 }
             }
             return true;
@@ -5336,9 +5348,17 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             return true;
         } else if (view == zoomControlView) {
             if (isPortrait) {
-                view.layout(0, height - dp(48 + 100 + 8 + 50), width, height - dp(48 + 100 + 8));
+                if (cameraPhotoRecyclerView.getVisibility() == View.VISIBLE) {
+                    zoomControlView.layout(0, height - dp(48 + 80 + 8 + 100 + 8 + 50), width, height - dp(48 + 80 + 8 + 100 + 8));
+                } else {
+                    zoomControlView.layout(0, height - dp(48 + 100 + 8 + 50), width, height - dp(48 + 100 + 8));
+                }
             } else {
-                view.layout(0, height - dp(48 - 8 - 50), width, height - dp(48 - 8));
+                if (cameraPhotoRecyclerView.getVisibility() == View.VISIBLE) {
+                    zoomControlView.layout(width - dp(80 + 8 + 100 + 8 + 50), 0, width - dp(80 + 8 + 100 + 8), height);
+                } else {
+                    zoomControlView.layout(width - dp(100 + 8 + 50), 0, width - dp(100 + 8), height);
+                }
             }
             return true;
         }
