@@ -1887,23 +1887,26 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 return;
             }
 
-            boolean close = counterTextView.getVisibility() == View.VISIBLE;
+            adapter.notifyDataSetChanged();
+            cameraAttachAdapter.notifyDataSetChanged();
+
+            boolean close = cameraPhotoRecyclerView.getVisibility() == View.VISIBLE;
             if (close) {
-                cameraPhotos.clear();
-                selectedPhotosOrder.clear();
-                selectedPhotos.clear();
-                counterTextView.setVisibility(View.INVISIBLE);
+                if (!collageLayoutView.hasLayout()) {
+                    cameraPhotos.clear();
+                    selectedPhotosOrder.clear();
+                    selectedPhotos.clear();
+                    counterTextView.setVisibility(View.INVISIBLE);
+                    parentAlert.updateCountButton(0);
+                }
                 cameraPhotoRecyclerView.setVisibility(View.GONE);
-                adapter.notifyDataSetChanged();
-                cameraAttachAdapter.notifyDataSetChanged();
-                parentAlert.updateCountButton(0);
             } else {
-                adapter.notifyDataSetChanged();
-                cameraAttachAdapter.notifyDataSetChanged();
-                counterTextView.setVisibility(View.VISIBLE);
+                if (!collageLayoutView.hasLayout()) {
+                    counterTextView.setVisibility(View.VISIBLE);
+                    counterTextView.setAlpha(1.0f);
+                    updatePhotosCounter(false);
+                }
                 cameraPhotoRecyclerView.setVisibility(View.VISIBLE);
-                counterTextView.setAlpha(1.0f);
-                updatePhotosCounter(false);
             }
         }
 
@@ -5434,6 +5437,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                         outputEntry = MediaController.PhotoEntry.asCollage(collageLayoutView.getLayout(), collageLayoutView.getContent());
                     }
                     updateActionBarButtons(true);
+                    cameraPhotoRecyclerView.setVisibility(GONE);
                     return;
                 }
 
