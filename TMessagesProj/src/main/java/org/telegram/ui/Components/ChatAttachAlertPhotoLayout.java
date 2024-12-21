@@ -1608,10 +1608,10 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
     private void updateActionBarButtonsOffsets() {
         float right = 0;
+        flashButton.setTranslationX(-right);         right += dp(46) * flashButton.getAlpha();
         collageRemoveButton.setTranslationX(-right); right += dp(46) * collageRemoveButton.getAlpha();
         dualButton.setTranslationX(-right);          right += dp(46) * dualButton.getAlpha();
         collageButton.setTranslationX(-right);       right += dp(46) * collageButton.getAlpha();
-        flashButton.setTranslationX(-right);         right += dp(46) * flashButton.getAlpha();
 
         float left = 0;
         closeButton.setTranslationX(left); left += dp(46) * closeButton.getAlpha();
