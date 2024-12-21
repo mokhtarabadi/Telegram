@@ -927,7 +927,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 .setDuration(5000)
                 .setCloseButton(true)
                 .setText(getString(R.string.StoryCameraDualHint))
-                .setOnHiddenListener(() -> MessagesController.getGlobalMainSettings().edit().putInt("storydualhint", MessagesController.getGlobalMainSettings().getInt("storydualhint", 0) + 1).apply());
+                .setOnHiddenListener(() -> MessagesController.getGlobalMainSettings().edit().putInt("chatdualhint", MessagesController.getGlobalMainSettings().getInt("chatdualhint", 0) + 1).apply());
         dualHint.setPadding(dp(8), 0, dp(8), 0);
         actionBarContainer.addView(dualHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 52, 0, 0));
 
@@ -1030,9 +1030,9 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             dualButton.setValue(cameraView.isDual());
 
             dualHint.hide();
-            MessagesController.getGlobalMainSettings().edit().putInt("storydualhint", 2).apply();
+            MessagesController.getGlobalMainSettings().edit().putInt("chatdualhint", 2).apply();
             if (savedDualHint.shown()) {
-                MessagesController.getGlobalMainSettings().edit().putInt("storysvddualhint", 2).apply();
+                MessagesController.getGlobalMainSettings().edit().putInt("chatsvddualhint", 2).apply();
             }
             savedDualHint.hide();
         });
@@ -3347,10 +3347,10 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         collageButton.setTranslationX(cameraView.dualAvailable() ? 0 : dp(46));
 //        collageLayoutView.getLast().addView(cameraView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
         //collageLayoutView.setCameraView(cameraView);
-        if (MessagesController.getGlobalMainSettings().getInt("storyhint2", 0) < 1) {
+        if (MessagesController.getGlobalMainSettings().getInt("chathint2", 0) < 1) {
             cameraHint.show();
-            MessagesController.getGlobalMainSettings().edit().putInt("storyhint2", MessagesController.getGlobalMainSettings().getInt("storyhint2", 0) + 1).apply();
-        } else if (!cameraView.isSavedDual() && cameraView.dualAvailable() && MessagesController.getGlobalMainSettings().getInt("storydualhint", 0) < 2) {
+            MessagesController.getGlobalMainSettings().edit().putInt("chathint2", MessagesController.getGlobalMainSettings().getInt("chathint2", 0) + 1).apply();
+        } else if (!cameraView.isSavedDual() && cameraView.dualAvailable() && MessagesController.getGlobalMainSettings().getInt("chatdualhint", 0) < 2) {
             dualHint.show();
         }
     }
@@ -3402,7 +3402,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
             @Override
             protected void onSavedDualCameraSuccess() {
-                if (MessagesController.getGlobalMainSettings().getInt("storysvddualhint", 0) < 2) {
+                if (MessagesController.getGlobalMainSettings().getInt("chatsvddualhint", 0) < 2) {
                     AndroidUtilities.runOnUIThread(() -> {
                         if (takingVideo || takingPhoto || cameraView == null) {
                             return;
@@ -3412,7 +3412,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                             savedDualHint.setMaxWidthPx(HintView2.cutInFancyHalf(text, savedDualHint.getTextPaint()));
                             savedDualHint.setText(text);
                             savedDualHint.show();
-                            MessagesController.getGlobalMainSettings().edit().putInt("storysvddualhint", MessagesController.getGlobalMainSettings().getInt("storysvddualhint", 0) + 1).apply();
+                            MessagesController.getGlobalMainSettings().edit().putInt("chatsvddualhint", MessagesController.getGlobalMainSettings().getInt("chatsvddualhint", 0) + 1).apply();
                         }
                     }, 340);
                 }
