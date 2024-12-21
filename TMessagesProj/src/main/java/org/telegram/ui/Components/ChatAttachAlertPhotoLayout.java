@@ -2881,6 +2881,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             adapter.notifyDataSetChanged();
             cameraAttachAdapter.notifyDataSetChanged();
         }
+
         if (entry != null && !external && cameraPhotos.size() > 1) {
             updatePhotosCounter(false);
             if (cameraView != null) {
@@ -2891,9 +2892,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             }
             return;
         }
-        if (cameraPhotos.isEmpty()) {
-            return;
-        }
+
         cancelTakingPhotos = true;
 
         BaseFragment fragment = parentAlert.baseFragment;
@@ -2903,6 +2902,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         if (fragment == null) {
             return;
         }
+
         PhotoViewer.getInstance().setParentActivity(fragment.getParentActivity(), resourcesProvider);
         PhotoViewer.getInstance().setParentAlert(parentAlert);
         PhotoViewer.getInstance().setMaxSelectedPhotos(parentAlert.maxSelectedPhotos, parentAlert.allowOrder);
@@ -2922,16 +2922,28 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             chatActivity = null;
             type = 5;
         }
+
         ArrayList<Object> arrayList;
         int index;
+
         if (parentAlert.avatarPicker != 0) {
             arrayList = new ArrayList<>();
             arrayList.add(entry);
             index = 0;
         } else {
-            arrayList = getAllPhotosArray();
-            index = cameraPhotos.size() - 1;
+            if (cameraPhotos.isEmpty()) {
+                arrayList = new ArrayList<>(selectedPhotos.values());
+                index = entry != null ? arrayList.size() - 1 : 0;
+            } else {
+                arrayList = getAllPhotosArray();
+                index = cameraPhotos.size() - 1;
+            }
         }
+
+        if (arrayList.isEmpty()) {
+            return;
+        }
+
         if (parentAlert.getAvatarFor() != null && entry != null) {
             parentAlert.getAvatarFor().isVideo = entry.isVideo;
         }
