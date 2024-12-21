@@ -751,6 +751,11 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             }
 
             @Override
+            public boolean dispatchTouchEvent(MotionEvent event) {
+                return false;
+            }
+
+            @Override
             protected void dispatchDraw(Canvas canvas) {
                 if (AndroidUtilities.makingGlobalBlurBitmap) {
                     return;
@@ -1097,8 +1102,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         gridView = new RecyclerListView(context, resourcesProvider) {
             @Override
             public boolean onTouchEvent(MotionEvent e) {
-                FileLog.d("gridView onTouchEvent");
-
                 if (e.getAction() == MotionEvent.ACTION_DOWN && e.getY() < parentAlert.scrollOffsetY[0] - dp(80)) {
                     return false;
                 }
@@ -3266,6 +3269,9 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         if (parentAlert.getCommentView().isKeyboardVisible() && isFocusable()) {
             parentAlert.getCommentView().closeKeyboard();
         }
+        if (videoTimerShown) {
+            videoTimerView.setVisibility(VISIBLE);
+        }
         actionBarContainer.setVisibility(View.VISIBLE);
         controlContainer.setVisibility(View.VISIBLE);
         controlContainer.setTag(null);
@@ -3285,6 +3291,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             ArrayList<Animator> animators = new ArrayList<>();
             animators.add(ObjectAnimator.ofFloat(this, "cameraOpenProgress", 0.0f, 1.0f));
             animators.add(ObjectAnimator.ofFloat(actionBarContainer, View.ALPHA, 1.0f));
+            animators.add(ObjectAnimator.ofFloat(videoTimerView, View.ALPHA, videoTimerShown ? 1.0f : 0.0f));
             animators.add(ObjectAnimator.ofFloat(controlContainer, View.ALPHA, 1.0f));
             animators.add(ObjectAnimator.ofFloat(navbarContainer, View.ALPHA, 1.0f));
             animators.add(ObjectAnimator.ofFloat(cameraCell, View.ALPHA, 1.0f));
@@ -3695,6 +3702,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             ArrayList<Animator> animators = new ArrayList<>();
             animators.add(ObjectAnimator.ofFloat(this, "cameraOpenProgress", 0.0f));
             animators.add(ObjectAnimator.ofFloat(actionBarContainer, View.ALPHA, 0.0f));
+            animators.add(ObjectAnimator.ofFloat(videoTimerView, View.ALPHA, 0.0f));
             animators.add(ObjectAnimator.ofFloat(controlContainer, View.ALPHA, 0.0f));
             animators.add(ObjectAnimator.ofFloat(navbarContainer, View.ALPHA, 0.0f));
             animators.add(ObjectAnimator.ofFloat(zoomControlView, View.ALPHA, 0.0f));
@@ -3728,13 +3736,15 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                     }
                     if (controlContainer != null) {
                         controlContainer.setVisibility(View.GONE);
-
                     }
                     if (navbarContainer != null) {
                         navbarContainer.setVisibility(View.GONE);
                     }
                     if (cameraPhotoRecyclerView != null) {
                         cameraPhotoRecyclerView.setVisibility(View.GONE);
+                    }
+                    if (videoTimerView != null) {
+                        videoTimerView.setVisibility(View.GONE);
                     }
                     if (collageLayoutView != null) {
                         if (Build.VERSION.SDK_INT >= 21) {
@@ -3752,6 +3762,8 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             setCameraOpenProgress(0);
             actionBarContainer.setAlpha(0);
             actionBarContainer.setVisibility(View.GONE);
+            videoTimerView.setAlpha(0);
+            videoTimerView.setVisibility(View.GONE);
             controlContainer.setAlpha(0);
             controlContainer.setVisibility(View.GONE);
             navbarContainer.setAlpha(0);
@@ -4898,6 +4910,8 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 ObjectAnimator.ofFloat(counterTextView, View.ALPHA, 0.0f),
                 ObjectAnimator.ofFloat(navbarContainer, View.ALPHA, 0.0f),
                 ObjectAnimator.ofFloat(actionBarContainer, View.ALPHA, 0.0f),
+                ObjectAnimator.ofFloat(zoomControlView, View.ALPHA, 0.0f),
+                ObjectAnimator.ofFloat(videoTimerView, View.ALPHA, 0.0f),
                 ObjectAnimator.ofFloat(cameraPhotoRecyclerView, View.ALPHA, 0.0f));
         animatorSet.setDuration(220);
         animatorSet.setInterpolator(CubicBezierInterpolator.DEFAULT);
@@ -4912,23 +4926,11 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 ObjectAnimator.ofFloat(counterTextView, View.ALPHA, 1.0f),
                 ObjectAnimator.ofFloat(navbarContainer, View.ALPHA, 1.0f),
                 ObjectAnimator.ofFloat(actionBarContainer, View.ALPHA, 1.0f),
+                ObjectAnimator.ofFloat(videoTimerView, View.ALPHA, videoTimerShown ? 1.0f : 0.0f),
                 ObjectAnimator.ofFloat(cameraPhotoRecyclerView, View.ALPHA, 1.0f));
         animatorSet.setDuration(250);
         animatorSet.setInterpolator(interpolator);
         animatorSet.start();
-        collageLayoutView.setTag(null);
-    }
-
-    @Override
-    public boolean onContainerViewTouchEvent(MotionEvent ev) {
-        FileLog.d("onContainerViewTouchEvent");
-        if (cameraAnimationInProgress) {
-            return true;
-        }
-        if (cameraOpened) {
-            return processTouchEvent(ev);
-        }
-        return false;
     }
 
     private boolean processTouchEvent(MotionEvent event) {
@@ -4936,34 +4938,14 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             return false;
         }
 
-        flingDetected = false;
-        if (collageListView != null && collageListView.isVisible()) {
-            final float y = parentAlert.getContainer().getY() + actionBarContainer.getY() + collageListView.getY();
-            if (event.getY() >= y && event.getY() <= y + collageListView.getHeight() || touchInCollageList) {
-                touchInCollageList = event.getAction() != MotionEvent.ACTION_UP && event.getAction() != MotionEvent.ACTION_CANCEL;
-                return super.dispatchTouchEvent(event);
-            } else {
-                collageListView.setVisible(false, true);
-                updateActionBarButtons(true);
-            }
-        }
-        if (touchInCollageList && (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)) {
-            touchInCollageList = false;
-        }
-        scaleGestureDetector.onTouchEvent(event);
-        gestureDetector.onTouchEvent(event);
-        if (event.getAction() == MotionEvent.ACTION_UP && !flingDetected) {
-            allowModeScroll = true;
-            modeSwitcherView.stopScroll(0);
-            scrollingY = false;
-            scrollingX = false;
-        }
-
-        if (!pressed && event.getActionMasked() == MotionEvent.ACTION_DOWN || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
+        if (!pressed && (event.getActionMasked() == MotionEvent.ACTION_DOWN || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN)) {
             if (!takingPhoto && !dragging) {
                 if (event.getPointerCount() != 2) {
                     maybeStartDraging = true;
                     lastY = event.getY();
+                    if (collageLayoutView != null) {
+                        collageLayoutView.setTag(null);
+                    }
                 }
                 pressed = true;
             }
@@ -4986,14 +4968,17 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                                 AndroidUtilities.cancelRunOnUIThread(zoomControlHideRunnable);
                                 zoomControlHideRunnable = null;
                             }
-                            if (collageLayoutView.getTag() == null) {
+                            if (collageLayoutView.getTag() == null &&
+                                    Math.abs(collageLayoutView.getTranslationY()) > AndroidUtilities.dp(20)) {
                                 collageLayoutView.setTag(1);
                                 animatedCloseCamera();
                             }
                         }
                     }
                 }
-            } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL || event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_POINTER_UP) {
+            } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL ||
+                    event.getActionMasked() == MotionEvent.ACTION_UP ||
+                    event.getActionMasked() == MotionEvent.ACTION_POINTER_UP) {
                 pressed = false;
                 if (dragging) {
                     dragging = false;
@@ -5002,6 +4987,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                             closeCamera(true);
                         } else {
                             animatedOpenCamera();
+                            collageLayoutView.setTag(null);
                         }
                     }
                 } else if (cameraView != null) {
@@ -5009,6 +4995,10 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                     float viewX = event.getRawX() - viewPosition[0];
                     float viewY = event.getRawY() - viewPosition[1];
                     cameraView.focusToPoint((int) viewX, (int) viewY);
+                }
+                maybeStartDraging = false;
+                if (collageLayoutView != null) {
+                    collageLayoutView.setTag(null);
                 }
             }
         }
@@ -5018,6 +5008,40 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
     private boolean flingDetected;
     private boolean touchInCollageList;
+
+    @Override
+    public boolean onContainerViewTouchEvent(MotionEvent event) {
+        if (cameraAnimationInProgress) {
+            return true;
+        }
+        if (cameraOpened) {
+            flingDetected = false;
+            if (collageListView != null && collageListView.isVisible()) {
+                final float y = parentAlert.getContainer().getY() + actionBarContainer.getY() + collageListView.getY();
+                if (event.getY() >= y && event.getY() <= y + collageListView.getHeight() || touchInCollageList) {
+                    touchInCollageList = event.getAction() != MotionEvent.ACTION_UP && event.getAction() != MotionEvent.ACTION_CANCEL;
+                    return processTouchEvent(event);
+                } else {
+                    collageListView.setVisible(false, true);
+                    updateActionBarButtons(true);
+                }
+            }
+            if (touchInCollageList && (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)) {
+                touchInCollageList = false;
+            }
+            scaleGestureDetector.onTouchEvent(event);
+            gestureDetector.onTouchEvent(event);
+            if (event.getAction() == MotionEvent.ACTION_UP && !flingDetected) {
+                allowModeScroll = true;
+                modeSwitcherView.stopScroll(0);
+                scrollingY = false;
+                scrollingX = false;
+            }
+
+            return processTouchEvent(event);
+        }
+        return false;
+    }
 
     public void cancelGestures() {
         scaleGestureDetector.onTouchEvent(AndroidUtilities.emptyMotionEvent());
