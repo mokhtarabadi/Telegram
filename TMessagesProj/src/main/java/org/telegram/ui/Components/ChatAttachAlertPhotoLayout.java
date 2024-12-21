@@ -2934,7 +2934,8 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             arrayList.add(entry);
             index = 0;
         } else {
-            if (cameraPhotos.isEmpty()) {
+            if (cameraPhotos.isEmpty() && !selectedPhotos.isEmpty()) {
+                cameraPhotos.addAll(selectedPhotos.values());
                 arrayList = new ArrayList<>(selectedPhotos.values());
                 index = entry != null ? arrayList.size() - 1 : 0;
             } else {
@@ -2950,6 +2951,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         if (parentAlert.getAvatarFor() != null && entry != null) {
             parentAlert.getAvatarFor().isVideo = entry.isVideo;
         }
+
         PhotoViewer.getInstance().openPhotoForSelect(arrayList, index, type, false, new BasePhotoProvider() {
 
             @Override
@@ -3039,11 +3041,11 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 }
                 if (!(parentAlert.baseFragment instanceof ChatActivity) || !((ChatActivity) parentAlert.baseFragment).isSecretChat()) {
                     for (int a = 0, size = cameraPhotos.size(); a < size; a++) {
-                        MediaController.PhotoEntry entry = (MediaController.PhotoEntry) cameraPhotos.get(a);
-                        if (entry.ttl > 0) {
+                        MediaController.PhotoEntry photoEntry = (MediaController.PhotoEntry) cameraPhotos.get(a);
+                        if (photoEntry.ttl > 0) {
                             continue;
                         }
-                        AndroidUtilities.addMediaToGallery(entry.path);
+                        AndroidUtilities.addMediaToGallery(photoEntry.path);
                     }
                 }
                 parentAlert.applyCaption();
