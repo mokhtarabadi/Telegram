@@ -832,9 +832,14 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
     public Part longPressedPart;
 
     @Override
-    public boolean dispatchTouchEvent(MotionEvent event) {
+    public boolean onTouchEvent(MotionEvent event) {
+        boolean r = touchEvent(event);
+        return super.onTouchEvent(event) || r;
+    }
+
+    public boolean touchEvent(MotionEvent event) {
         if (!hasLayout() || preview) {
-            return super.dispatchTouchEvent(event);
+            return false;
         }
         final Part hitPart = getPartAt(event.getX(), event.getY());
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
@@ -910,7 +915,7 @@ public class CollageLayoutView2 extends FrameLayout implements ItemOptions.Scrim
                 return true;
             }
         }
-        return pressedPart != null || super.dispatchTouchEvent(event);
+        return pressedPart != null;
     }
 
     public boolean cancelTouch() {

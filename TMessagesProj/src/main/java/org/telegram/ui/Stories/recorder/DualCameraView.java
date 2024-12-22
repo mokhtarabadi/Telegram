@@ -47,9 +47,9 @@ public class DualCameraView extends CameraView {
     }
 
     @Override
-    public boolean dispatchTouchEvent(MotionEvent event) {
+    public boolean onTouchEvent(MotionEvent event) {
         boolean r = touchEvent(event);
-        return super.dispatchTouchEvent(event) || r;
+        return super.onTouchEvent(event) || r;
     }
 
     @Override
@@ -258,7 +258,7 @@ public class DualCameraView extends CameraView {
         tapTime = -1;
     }
 
-    private boolean touchEvent(MotionEvent ev) {
+    public boolean touchEvent(MotionEvent ev) {
         boolean r = false;
         r = checkTap(ev) || r;
         if (isDual()) {

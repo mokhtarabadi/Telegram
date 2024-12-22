@@ -750,8 +750,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             }
 
             @Override
-            public boolean dispatchTouchEvent(MotionEvent event) {
-                FileLog.d("collageLayoutView:dispatchTouchEvent");
+            public boolean onTouchEvent(MotionEvent event) {
                 return false;
             }
 
@@ -3389,8 +3388,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         cameraView = new DualCameraView(getContext(), isCameraFrontfaceBeforeEnteringEditMode != null ? isCameraFrontfaceBeforeEnteringEditMode : parentAlert.openWithFrontFaceCamera, lazy) {
 
             @Override
-            public boolean dispatchTouchEvent(MotionEvent ev) {
-                FileLog.d("cameraView:dispatchTouchEvent");
+            public boolean onTouchEvent(MotionEvent ev) {
                 return false;
             }
 
@@ -4938,16 +4936,13 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             return false;
         }
 
-        if (recordControl.isTouch() || cameraView != null && cameraView.isDualTouch() || scaling || zoomControlView != null && zoomControlView.isTouch() || inCheck()) {
-            return false;
-        }
-
         if (takingVideo || takingPhoto) {
             return true;
         }
 
-        showZoomControls(true, false);
-        cameraHint.show(true);
+        if (recordControl.isTouch() || cameraView != null && cameraView.isDualTouch() || scaling || zoomControlView != null && zoomControlView.isTouch() || inCheck()) {
+            return true;
+        }
 
         if (!pressed && (event.getActionMasked() == MotionEvent.ACTION_DOWN || event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN)) {
             if (!takingPhoto && !dragging) {
@@ -4987,9 +4982,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                         }
                     }
                 }
-            } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL ||
-                    event.getActionMasked() == MotionEvent.ACTION_UP ||
-                    event.getActionMasked() == MotionEvent.ACTION_POINTER_UP) {
+            } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL || event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_POINTER_UP) {
                 pressed = false;
                 if (dragging) {
                     dragging = false;
@@ -5022,11 +5015,13 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
     @Override
     public boolean onContainerViewTouchEvent(MotionEvent event) {
-        FileLog.d("collageLayoutView:onTouchEvent");
         if (cameraAnimationInProgress) {
             return true;
         }
         if (cameraOpened) {
+            cameraView.touchEvent(event);
+            collageLayoutView.touchEvent(event);
+
             flingDetected = false;
             if (collageListView != null && collageListView.isVisible()) {
                 final float y = parentAlert.getContainer().getY() + actionBarContainer.getY() + collageListView.getY();
@@ -5041,6 +5036,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             if (touchInCollageList && (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)) {
                 touchInCollageList = false;
             }
+
             scaleGestureDetector.onTouchEvent(event);
             gestureDetector.onTouchEvent(event);
             if (event.getAction() == MotionEvent.ACTION_UP && !flingDetected) {
