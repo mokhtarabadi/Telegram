@@ -862,6 +862,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         addView(flashViews.foregroundView, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         container.addView(actionBarContainer = new FrameLayout(context)); // 150dp
+
         actionBarContainer.setVisibility(View.GONE);
         actionBarContainer.setAlpha(0.0f);
 
@@ -890,7 +891,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         collageButton.setSelected(false);
         collageButton.setVisibility(View.VISIBLE);
         collageButton.setAlpha(1.0f);
-        actionBarContainer.addView(collageButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.RIGHT));
         flashViews.add(collageButton);
 
         collageRemoveButton = new ToggleButton2(context);
@@ -908,7 +908,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             collageListView.setVisible(false, true);
             updateActionBarButtons(true);
         });
-        actionBarContainer.addView(collageRemoveButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.RIGHT));
         flashViews.add(collageRemoveButton);
 
         collageListView = new CollageLayoutButton.CollageLayoutListView(context, null);
@@ -924,7 +923,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             setActionBarButtonVisible(collageRemoveButton, collageListView.isVisible(), true);
             recordControl.setCollageProgress(collageLayoutView.hasLayout() ? collageLayoutView.getFilledProgress() : 0.0f, true);
         });
-        actionBarContainer.addView(collageListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 56, Gravity.TOP | Gravity.RIGHT));
 
         dualHint = new HintView2(context, HintView2.DIRECTION_TOP)
                 .setJoint(1, -20)
@@ -933,20 +931,17 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                 .setText(getString(R.string.StoryCameraDualHint))
                 .setOnHiddenListener(() -> MessagesController.getGlobalMainSettings().edit().putInt("chatdualhint", MessagesController.getGlobalMainSettings().getInt("chatdualhint", 0) + 1).apply());
         dualHint.setPadding(dp(8), 0, dp(8), 0);
-        actionBarContainer.addView(dualHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 52, 0, 0));
 
         savedDualHint = new HintView2(context, HintView2.DIRECTION_RIGHT)
                 .setJoint(0, 56 / 2)
                 .setDuration(5000)
                 .setMultilineText(true);
-        actionBarContainer.addView(savedDualHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 0, 52, 0));
 
         removeCollageHint = new HintView2(context, HintView2.DIRECTION_TOP)
                 .setJoint(1, -20)
                 .setDuration(5000)
                 .setText(LocaleController.getString(R.string.StoryCollageRemoveGrid));
         removeCollageHint.setPadding(dp(8), 0, dp(8), 0);
-        actionBarContainer.addView(removeCollageHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 52, 0, 0));
 
         videoTimerView = new VideoTimerView(context);
         showVideoTimer(false, false);
@@ -966,7 +961,6 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         closeButton.setOnClickListener(e -> {
             closeCamera(true);
         });
-        actionBarContainer.addView(closeButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.LEFT));
         flashViews.add(closeButton);
 
         flashButton = new ToggleButton2(context);
@@ -1020,10 +1014,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
                     .show();
             return true;
         });
-        //flashButton.setVisibility(View.GONE);
-        //flashButton.setAlpha(0f);
         flashViews.add(flashButton);
-        actionBarContainer.addView(flashButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.RIGHT));
 
         dualButton = new ToggleButton(context, R.drawable.media_dual_camera2_shadow, R.drawable.media_dual_camera2);
         dualButton.setOnClickListener(v -> {
@@ -1044,7 +1035,30 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
         dualButton.setVisibility(dualCameraAvailable ? View.VISIBLE : View.GONE);
         dualButton.setAlpha(dualCameraAvailable ? 1.0f : 0.0f);
         flashViews.add(dualButton);
-        actionBarContainer.addView(dualButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.RIGHT));
+
+        if (actionBarContainer.getMeasuredHeight() == dp(150)) {
+            actionBarContainer.addView(collageButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.RIGHT));
+            actionBarContainer.addView(collageRemoveButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.RIGHT));
+            actionBarContainer.addView(collageListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 56, Gravity.TOP | Gravity.RIGHT));
+            actionBarContainer.addView(dualHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 52, 0, 0));
+            actionBarContainer.addView(savedDualHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 0, 52, 0));
+            actionBarContainer.addView(removeCollageHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP, 0, 52, 0, 0));
+            actionBarContainer.addView(closeButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.LEFT));
+            actionBarContainer.addView(flashButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.RIGHT));
+            actionBarContainer.addView(dualButton, LayoutHelper.createFrame(56, 56, Gravity.TOP | Gravity.RIGHT));
+            ((LinearLayoutManager) collageListView.listView.getLayoutManager()).setOrientation(LinearLayoutManager.HORIZONTAL);
+        } else {
+            actionBarContainer.addView(collageButton, LayoutHelper.createFrame(56, 56, Gravity.LEFT | Gravity.TOP));
+            actionBarContainer.addView(collageRemoveButton, LayoutHelper.createFrame(56, 56, Gravity.LEFT | Gravity.TOP));
+            actionBarContainer.addView(collageListView, LayoutHelper.createFrame(56, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP));
+            actionBarContainer.addView(dualHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT, 52, 0, 0, 0));
+            actionBarContainer.addView(savedDualHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT, 0, 0, 0, 52));
+            actionBarContainer.addView(removeCollageHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT, 52, 0, 0, 0));
+            actionBarContainer.addView(closeButton, LayoutHelper.createFrame(56, 56, Gravity.LEFT | Gravity.BOTTOM));
+            actionBarContainer.addView(flashButton, LayoutHelper.createFrame(56, 56, Gravity.LEFT | Gravity.TOP));
+            actionBarContainer.addView(dualButton, LayoutHelper.createFrame(56, 56, Gravity.LEFT | Gravity.TOP));
+            ((LinearLayoutManager) collageListView.listView.getLayoutManager()).setOrientation(LinearLayoutManager.VERTICAL);
+        }
 
         updateActionBarButtonsOffsets();
 
@@ -1574,12 +1588,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
             view.setVisibility(View.VISIBLE);
             view.animate()
                     .alpha(visible ? 1.0f : 0.0f)
-                    .setUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                        @Override
-                        public void onAnimationUpdate(@NonNull ValueAnimator animation) {
-                            updateActionBarButtonsOffsets();
-                        }
-                    })
+                    .setUpdateListener(animation -> updateActionBarButtonsOffsets())
                     .setListener(new AnimatorListenerAdapter() {
                         @Override
                         public void onAnimationEnd(Animator animation) {
@@ -1601,16 +1610,39 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
     }
 
     private void updateActionBarButtonsOffsets() {
-        float right = 0;
-        flashButton.setTranslationX(-right);         right += dp(46) * flashButton.getAlpha();
-        collageRemoveButton.setTranslationX(-right); right += dp(46) * collageRemoveButton.getAlpha();
-        dualButton.setTranslationX(-right);          right += dp(46) * dualButton.getAlpha();
-        collageButton.setTranslationX(-right);       right += dp(46) * collageButton.getAlpha();
+        if (actionBarContainer.getMeasuredHeight() == dp(150)) {
+            float right = 0;
+            flashButton.setTranslationX(-right);
+            right += dp(46) * flashButton.getAlpha();
+            collageRemoveButton.setTranslationX(-right);
+            right += dp(46) * collageRemoveButton.getAlpha();
+            dualButton.setTranslationX(-right);
+            right += dp(46) * dualButton.getAlpha();
+            collageButton.setTranslationX(-right);
+            right += dp(46) * collageButton.getAlpha();
 
-        float left = 0;
-        closeButton.setTranslationX(left); left += dp(46) * closeButton.getAlpha();
+            float left = 0;
+            closeButton.setTranslationX(left);
+            left += dp(46) * closeButton.getAlpha();
 
-        collageListView.setBounds(left + dp(8), right + dp(8));
+            collageListView.setBounds(left + dp(8), right + dp(8));
+        } else {
+            float top = 0;
+            flashButton.setTranslationY(-top);
+            top += dp(46) * flashButton.getAlpha();
+            collageRemoveButton.setTranslationY(-top);
+            top += dp(46) * collageRemoveButton.getAlpha();
+            dualButton.setTranslationY(-top);
+            top += dp(46) * dualButton.getAlpha();
+            collageButton.setTranslationY(-top);
+            top += dp(46) * collageButton.getAlpha();
+
+            float bottom = 0;
+            closeButton.setTranslationY(bottom);
+            bottom += dp(46) * closeButton.getAlpha();
+
+            collageListView.setBounds(0, top + dp(8),0, bottom + dp(8));
+        }
     }
 
     private boolean isDark;
@@ -5218,6 +5250,7 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
     @Override
     public boolean onCustomMeasure(View view, int width, int height) {
+        width += parentAlert.getLeftInset() + parentAlert.getRightInset();
         height += parentAlert.getBottomInset();
         boolean isPortrait = width < height;
 
@@ -5281,12 +5314,11 @@ public class ChatAttachAlertPhotoLayout extends ChatAttachAlert.AttachAlertLayou
 
     @Override
     public boolean onCustomLayout(View view, int left, int top, int right, int bottom) {
-        bottom += parentAlert.getBottomInset();
-
         int width = (right - left);
         int height = (bottom - top);
+        width += parentAlert.getLeftInset() + parentAlert.getRightInset();
+        height += parentAlert.getBottomInset();
         boolean isPortrait = width < height;
-        FileLog.d(String.format("onCustomLayout width:%d height:%d isPortrait:%b left:%d top:%d right:%d bottom:%d bottomInset:%d rightInset:%d leftInset:%d", width, height, isPortrait, left, top, right, bottom, parentAlert.getBottomInset(), parentAlert.getRightInset(), parentAlert.getLeftInset()));
 
         if (view == videoTimerView) {
             int cx = width / 2;

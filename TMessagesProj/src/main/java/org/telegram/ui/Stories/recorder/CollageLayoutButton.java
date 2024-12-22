@@ -171,6 +171,11 @@ public class CollageLayoutButton extends ToggleButton2 {
             listView.invalidate();
         }
 
+        public void setBounds(float left, float top, float right, float bottom) {
+            listView.setPadding((int) left, (int) top, (int) right, (int) bottom);
+            listView.invalidate();
+        }
+
         public boolean isVisible() {
             return visible;
         }
