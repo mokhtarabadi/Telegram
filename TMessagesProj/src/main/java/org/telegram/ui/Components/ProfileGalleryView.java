@@ -1144,6 +1144,8 @@ public class ProfileGalleryView extends CircularViewPager implements Notificatio
                 imageViews.set(position, item.imageView);
             }
 
+            item.imageView.getImageReceiver().setBlurred(isProfileFragment);
+
             if (item.imageView.getParent() == null) {
                 container.addView(item.imageView);
             }

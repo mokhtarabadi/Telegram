@@ -123,6 +123,25 @@ public class Utilities {
         return scaledBitmap;
     }
 
+    public static Bitmap stackBlurBitmapWithScaleFactor1(Bitmap bitmap, float scaleFactor) {
+        if (bitmap == null || bitmap.isRecycled()) {
+            return null;
+        }
+        int w = (int) Math.max(AndroidUtilities.dp(20), bitmap.getWidth() / scaleFactor);
+        int h = (int) Math.max(AndroidUtilities.dp(20) * (float) bitmap.getHeight() / bitmap.getWidth(), bitmap.getHeight() / scaleFactor);
+        if (w <= 0 || h <= 0) {
+            return null;
+        }
+        Bitmap scaledBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(scaledBitmap);
+        canvas.save();
+        canvas.scale((float) scaledBitmap.getWidth() / bitmap.getWidth(), (float) scaledBitmap.getHeight() / bitmap.getHeight());
+        canvas.drawBitmap(bitmap, 0, 0, new Paint(Paint.FILTER_BITMAP_FLAG));
+        canvas.restore();
+        Utilities.stackBlurBitmap(scaledBitmap, Math.max(7, Math.max(w, h) / 20));
+        return scaledBitmap;
+    }
+
     public static Bitmap blurWallpaper(Bitmap src) {
         if (src == null) {
             return null;

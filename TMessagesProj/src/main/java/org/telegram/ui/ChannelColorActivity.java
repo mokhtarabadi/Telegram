@@ -1084,15 +1084,6 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
                 });
                 listCell.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
                 view = listCell;
-//                PeerColorActivity.PeerColorGrid gridCell = new PeerColorActivity.PeerColorGrid(getContext(), PeerColorActivity.PAGE_NAME, currentAccount, resourceProvider);
-//                gridCell.setOnColorClick(color -> {
-//                    selectedReplyColor = color;
-//                    updateButton(true);
-//                    updateMessagesPreview(true);
-//                    updateProfilePreview(true);
-//                });
-//                gridCell.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
-//                view = gridCell;
             } else if (viewType == VIEW_TYPE_COLOR_PROFILE_GRID) {
                 PeerColorActivity.PeerColorGrid gridCell = new PeerColorActivity.PeerColorGrid(getContext(), PeerColorActivity.PAGE_PROFILE, currentAccount, resourceProvider);
                 gridCell.setDivider(false);
@@ -1232,7 +1223,6 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
                     ((PeerColorActivity.PeerColorGrid) holder.itemView).setSelected(selectedProfileColor, false);
                     break;
                 case VIEW_TYPE_COLOR_REPLY_GRID:
-//                    ((PeerColorActivity.PeerColorGrid) holder.itemView).setSelected(selectedReplyColor, false);
                     ((PeerColorPicker) holder.itemView).setSelected(selectedReplyColor, false);
                     break;
             }
@@ -1447,11 +1437,28 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
 
         public ProfilePreview(Context context) {
             super(context);
-            backgroundView = new PeerColorActivity.ColoredActionBar(getContext(), resourceProvider);
+            backgroundView = new PeerColorActivity.ColoredActionBar(getContext(), resourceProvider, currentAccount, dialogId) {
+                @Override
+                protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                    if (isGroup) {
+                        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(dp(200 + 24) + ActionBar.getCurrentActionBarHeight() / 2, MeasureSpec.EXACTLY));
+                    } else {
+                        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+                    }
+                }
+            };
             backgroundView.setProgressToGradient(1f);
             backgroundView.ignoreMeasure = true;
-            addView(backgroundView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, isGroup ? 194 : 134, Gravity.FILL));
+            addView(backgroundView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, isGroup ? 0 : 200, Gravity.FILL));
             profileView = new PeerColorActivity.ProfilePreview(getContext(), currentAccount, dialogId, resourceProvider){
+                {
+                    if (titleView != null) {
+                        ((FrameLayout.LayoutParams) titleView.getLayoutParams()).bottomMargin = dp(34);
+                    }
+                    if (subtitleView != null) {
+                        ((FrameLayout.LayoutParams) subtitleView.getLayoutParams()).bottomMargin = dp(13);
+                    }
+                }
                 @Override
                 public void setColor(int colorId, boolean animated) {
                     super.setColor(colorId, animated);
@@ -1459,8 +1466,17 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
                         textInfo1.setTextColor(profileView.subtitleView.getTextColor());
                     }
                 }
+
+                @Override
+                protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                    if (isGroup) {
+                        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(dp(200 + 24) + ActionBar.getCurrentActionBarHeight() / 2, MeasureSpec.EXACTLY));
+                    } else {
+                        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+                    }
+                }
             };
-            addView(profileView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 104, Gravity.BOTTOM, 0, 0, 0, isGroup ? 24: 0));
+            addView(profileView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, isGroup ? 0 : 200, Gravity.BOTTOM, 0, 0, 0, isGroup ? 24: 0));
 
             if (needBoostInfoSection()) {
                 title = new SimpleTextView(getContext());
@@ -1612,10 +1628,10 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
 
         public void updateImageBounds() {
             imageDrawable.setBounds(
-                getWidth() - imageDrawable.getIntrinsicWidth() - dp(21),
-                (getHeight() - imageDrawable.getIntrinsicHeight()) / 2,
-                getWidth() - dp(21),
-                (getHeight() + imageDrawable.getIntrinsicHeight()) / 2
+                    getWidth() - imageDrawable.getIntrinsicWidth() - dp(21),
+                    (getHeight() - imageDrawable.getIntrinsicHeight()) / 2,
+                    getWidth() - dp(21),
+                    (getHeight() + imageDrawable.getIntrinsicHeight()) / 2
             );
         }
 
@@ -1858,9 +1874,6 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
             chatThemeController.requestAllChatThemes(new ResultCallback<List<EmojiThemes>>() {
                 @Override
                 public void onComplete(List<EmojiThemes> result) {
-//                    if (result != null && !result.isEmpty()) {
-//                        themeDelegate.setCachedThemes(result);
-//                    }
                     NotificationCenter.getInstance(currentAccount).doOnIdle(() -> {
                         onDataLoaded(result);
                     });
@@ -1925,7 +1938,6 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
                 adapter.notifyDataSetChanged();
             }
 
-//            resetToPrimaryState(false);
             listView.animate().alpha(1f).setDuration(150).start();
             updateState(true);
 
@@ -2134,12 +2146,12 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
 
     public boolean hasUnsavedChanged() {
         return (
-            currentReplyColor != selectedReplyColor ||
-            currentReplyEmoji != selectedReplyEmoji ||
-            currentProfileColor != selectedProfileColor ||
-            currentProfileEmoji != selectedProfileEmoji ||
-            !DialogObject.emojiStatusesEqual(currentStatusEmoji, selectedStatusEmoji) ||
-            !ChatThemeController.wallpaperEquals(currentWallpaper, selectedWallpaper)
+                currentReplyColor != selectedReplyColor ||
+                        currentReplyEmoji != selectedReplyEmoji ||
+                        currentProfileColor != selectedProfileColor ||
+                        currentProfileEmoji != selectedProfileEmoji ||
+                        !DialogObject.emojiStatusesEqual(currentStatusEmoji, selectedStatusEmoji) ||
+                        !ChatThemeController.wallpaperEquals(currentWallpaper, selectedWallpaper)
         );
     }
 
@@ -2382,13 +2394,13 @@ public class ChannelColorActivity extends BaseFragment implements NotificationCe
                 if (selectT > 0) {
                     backgroundPaint.setStrokeWidth(dpf2(2));
                     canvas.drawCircle(
-                        getMeasuredWidth() / 2f, getMeasuredHeight() / 2f,
-                        AndroidUtilities.lerp(
-                                dp(CIRCLE_RADIUS_DP) + backgroundPaint.getStrokeWidth() * .5f,
-                                dp(CIRCLE_RADIUS_DP) - backgroundPaint.getStrokeWidth() * 2f,
-                                selectT
-                        ),
-                        backgroundPaint
+                            getMeasuredWidth() / 2f, getMeasuredHeight() / 2f,
+                            AndroidUtilities.lerp(
+                                    dp(CIRCLE_RADIUS_DP) + backgroundPaint.getStrokeWidth() * .5f,
+                                    dp(CIRCLE_RADIUS_DP) - backgroundPaint.getStrokeWidth() * 2f,
+                                    selectT
+                            ),
+                            backgroundPaint
                     );
                 }
 

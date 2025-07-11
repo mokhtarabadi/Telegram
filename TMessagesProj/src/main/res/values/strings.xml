@@ -9483,4 +9483,12 @@
     <string name="MessageTodoList">Checklist</string>
     <string name="TodoCheck">Check</string>
     <string name="TodoUncheck">Uncheck</string>
+
+    <!-- For Contest Only -->
+    <string name="ProfileShare">Share</string>
+    <string name="ProfileGift">Gift</string>
+    <string name="ProfileLeave">Leave</string>
+    <string name="ProfileDiscuss">Discuss</string>
+    <string name="ProfileStop">Stop</string>
+    <string name="ProfileVideo">Video</string>
 </resources>

@@ -18,6 +18,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.Utilities;
@@ -53,7 +54,6 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         this.avatarImage = avatarImage;
 
         this.resourcesProvider = resourcesProvider;
-
     }
 
     private float expandProgress;
@@ -66,9 +66,6 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
 
     private float actionBarProgress;
     public void setActionBarActionMode(float progress) {
-//        if (Theme.isCurrentThemeDark()) {
-//            return;
-//        }
         actionBarProgress = progress;
         invalidate();
     }
@@ -129,7 +126,9 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.starUserGiftsLoaded);
 
         for (Gift gift : gifts) {
-            gift.emojiDrawable.removeView(this);
+            if (gift.emojiDrawable != null) {
+                gift.emojiDrawable.removeView(this);
+            }
         }
     }
 
@@ -188,11 +187,11 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         }
 
         public void draw(
-            Canvas canvas,
-            float cx, float cy,
-            float ascale, float rotate,
-            float alpha,
-            float gradientAlpha
+                Canvas canvas,
+                float cx, float cy,
+                float ascale, float rotate,
+                float alpha,
+                float gradientAlpha
         ) {
             if (alpha <= 0.0f) return;
             final float gsz = dp(45);
@@ -320,108 +319,311 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
 
     public final AnimatedFloat animatedCount = new AnimatedFloat(this, 0, 320, CubicBezierInterpolator.EASE_OUT_QUINT);
 
+    private float giftsAnimationProgress = 1f;
+
+    public void setGiftsAnimationProgress(float progress) {
+        float clamped = Utilities.clamp01(progress);
+        if (giftsAnimationProgress != clamped) {
+            giftsAnimationProgress = clamped;
+            invalidate();
+        }
+    }
+
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
         if (gifts.isEmpty() || expandProgress >= 1.0f) return;
 
-        final float ax = avatarContainer.getX();
-        final float ay = avatarContainer.getY();
-        final float aw = (avatarContainer.getWidth()) * avatarContainer.getScaleX();
-        final float ah = (avatarContainer.getHeight()) * avatarContainer.getScaleY();
+        final float scale = avatarContainer.getScaleX();
+        final float unscaledHeight = avatarContainer.getHeight();
+
+        final float acx = getWidth() / 2.0f;
+        final float acy = avatarContainer.getY() + unscaledHeight / 2.0f;
+
+        final float scaledWidth = avatarContainer.getWidth() * scale;
+        final float scaledHeight = unscaledHeight * scale;
+        final float ar = Math.min(scaledWidth, scaledHeight) / 2.0f + dp(6);
 
         canvas.save();
         canvas.clipRect(0, 0, getWidth(), expandY);
 
-        final float acx = ax + aw / 2.0f;
-        final float cacx = Math.min(acx, dp(48));
-        final float acy = ay + ah / 2.0f;
-        final float ar = Math.min(aw, ah) / 2.0f + dp(6);
-        final float cx = getWidth() / 2.0f;
+        int count = gifts.size();
 
-        final float closedAlpha = Utilities.clamp01((float) (expandY - (AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight())) / dp(50));
-
-        for (int i = 0; i < gifts.size(); ++i) {
-            final Gift gift = gifts.get(i);
-            final float alpha = gift.animatedFloat.set(1.0f);
-            final float scale = lerp(0.5f, 1.0f, alpha);
-            final int index = i; // gifts.size() == maxCount ? i - 1 : i;
-            if (index == 0) {
-                gift.draw(
-                    canvas,
-                    (float) (acx + ar * Math.cos(-65 / 180.0f * Math.PI)),
-                    (float) (acy + ar * Math.sin(-65 / 180.0f * Math.PI)),
-                    scale, -65 + 90,
-                    alpha * (1.0f - expandProgress), lerp(0.9f, 0.25f, actionBarProgress)
-                );
-            } else if (index == 1) {
-                gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .27f, dp(62)), cx, 0.5f * actionBarProgress), acy - dp(52),
-                    scale, -4.0f,
-                    alpha * alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            } else if (index == 2) {
-                gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .46f, dp(105)), cx, 0.5f * actionBarProgress), acy - dp(72),
-                    scale, 8.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            } else if (index == 3) {
-                gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .60f, dp(136)), cx, 0.5f * actionBarProgress), acy - dp(46),
-                    scale, 3.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            } else if (index == 4) {
-                gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .08f, dp(21.6f)), cx, 0.5f * actionBarProgress), acy - dp(82f),
-                    scale, -3.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            } else if (index == 5) {
-                gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .745f, dp(186)), cx, 0.5f * actionBarProgress), acy - dp(39),
-                    scale, 2.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            } else if (index == 6) {
-                gift.draw(
-                    canvas,
-                    cacx + Math.min(getWidth() * .38f, dp(102)), expandY - dp(12),
-                    scale, 0,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            } else if (index == 7) {
-                gift.draw(
-                    canvas,
-                    cacx + Math.min(getWidth() * .135f, dp(36)), expandY - dp(17.6f),
-                    scale, -5.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            } else if (index == 8) {
-                gift.draw(
-                    canvas,
-                    cacx + Math.min(getWidth() * .76f, dp(178)), expandY - dp(21.66f),
-                    scale, 5.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            }
+        if (count == 1) {
+            drawOneGiftLayout(canvas, ar, acx, acy);
+        } else if (count == 2) {
+            drawTwoGiftsLayout(canvas, ar, acx, acy);
+        } else if (count == 3) {
+            drawThreeGiftsLayout(canvas, ar, acx, acy);
+        } else if (count == 4) {
+            drawFourGiftsLayout(canvas, ar, acx, acy);
+        } else if (count == 5) {
+            drawFiveGiftsLayout(canvas, ar, acx, acy);
+        } else {
+            float base = ar + dp(20);
+            float smallX = base + dp(20);
+            float smallY = smallX * 0.6f;
+            float largeX = base + dp(40);
+            float largeY = largeX * 0.6f;
+            drawSixGiftsLayout(canvas, smallX, smallY, largeX, largeY, acx, acy);
         }
 
         canvas.restore();
     }
+
+    private void drawOneGiftLayout(Canvas canvas, float avatarRadius, float centerX, float centerY) {
+        float distance = avatarRadius + dp(40);
+        float local;
+        if (giftsAnimationProgress >= 0.5f) {
+            local = 0f;
+        } else {
+            float t = (0.5f - giftsAnimationProgress) / 0.5f;
+            t = Utilities.clamp01(t);
+            local = t * t;
+        }
+
+        float r = AndroidUtilities.lerp(distance, 0f, local);
+        float alpha = AndroidUtilities.lerp(1f, 0f, local);
+        float scaleFactor = AndroidUtilities.lerp(1f, 0.3f, local);
+
+        float angle = -90f;
+        float rad = (float) Math.toRadians(angle);
+        float cx = centerX + r * (float) Math.cos(rad);
+        float cy = centerY + r * (float) Math.sin(rad);
+
+        gifts.get(0).draw(
+                canvas,
+                cx, cy,
+                scaleFactor,
+                angle,
+                alpha * (1f - expandProgress) * (1f - actionBarProgress),
+                lerp(0.9f, 0.25f, actionBarProgress)
+        );
+    }
+
+    private void drawTwoGiftsLayout(Canvas canvas, float avatarRadius, float centerX, float centerY) {
+        int[] order = { 0, 1 };
+        float[] angles = { 180f, 0f };
+        float distance = avatarRadius + dp(40);
+
+        float local;
+        if (giftsAnimationProgress >= 0.5f) {
+            local = 0f;
+        } else {
+            float t = (0.5f - giftsAnimationProgress) / 0.5f;
+            t = Utilities.clamp01(t);
+            local = t * t;
+        }
+
+        float r = AndroidUtilities.lerp(distance, 0f, local);
+        float alpha = AndroidUtilities.lerp(1f, 0f, local);
+        float scaleFactor = AndroidUtilities.lerp(1f, 0.3f, local);
+
+        for (int i = 0; i < gifts.size(); i++) {
+            int idx = order[i];
+            Gift g = gifts.get(idx);
+
+            float rad = (float) Math.toRadians(angles[idx]);
+            float cx = centerX + r * (float) Math.cos(rad);
+            float cy = centerY + r * (float) Math.sin(rad);
+
+            g.draw(
+                    canvas,
+                    cx, cy,
+                    scaleFactor,
+                    angles[idx],
+                    alpha * (1f - expandProgress) * (1f - actionBarProgress),
+                    lerp(0.9f, 0.25f, actionBarProgress)
+            );
+        }
+    }
+
+    private void drawThreeGiftsLayout(Canvas canvas, float avatarRadius, float centerX, float centerY) {
+        int[] order = { 0, 1, 2 };
+        float[] angles = { -90f, 150, 30 };
+        float distance = avatarRadius + dp(40);
+        float groupSize = 1f / 2f;
+
+        for (int i = 0; i < gifts.size(); i++) {
+            int idx = order[i];
+            Gift g = gifts.get(idx);
+            int grp = (i == 0) ? 1 : 0;
+
+            float start = grp * groupSize;
+            float end = (grp + 1) * groupSize;
+
+            float local;
+            if (giftsAnimationProgress >= end) {
+                local = 0f;
+            } else if (giftsAnimationProgress <= start) {
+                continue;
+            } else {
+                float t = (end - giftsAnimationProgress) / groupSize;
+                t = Utilities.clamp01(t);
+                local = t * t;
+            }
+            float r = AndroidUtilities.lerp(distance, 0f, local);
+            float rad = (float) Math.toRadians(angles[idx]);
+            float cx = centerX + r * (float) Math.cos(rad);
+            float cy = centerY + r * (float) Math.sin(rad);
+
+            float alpha = AndroidUtilities.lerp(1f, 0f, local);
+            float scaleFactor = AndroidUtilities.lerp(1f, 0.3f, local);
+
+            g.draw(
+                    canvas,
+                    cx, cy,
+                    scaleFactor,
+                    angles[idx],
+                    alpha * (1f - expandProgress) * (1f - actionBarProgress),
+                    lerp(0.9f, 0.25f, actionBarProgress)
+            );
+        }
+    }
+
+    private void drawFourGiftsLayout(Canvas canvas, float avatarRadius, float centerX, float centerY) {
+        int[] order = {0, 1, 2, 3};
+        float[] angles = {135f, 45f, -135f, -45f};
+        float distance = avatarRadius + dp(40);
+        float groupSize = 1f / 2f;
+
+        for (int i = 0; i < gifts.size(); i++) {
+            int idx = order[i];
+            Gift g = gifts.get(idx);
+            int grp = i / 2;
+
+            float start = grp * groupSize;
+            float end = (grp + 1) * groupSize;
+
+            float local;
+            if (giftsAnimationProgress >= end) {
+                local = 0f;
+            } else if (giftsAnimationProgress <= start) {
+                continue;
+            } else {
+                float t = (end - giftsAnimationProgress) / groupSize;
+                t = Utilities.clamp01(t);
+                local = t * t;
+            }
+            float r = AndroidUtilities.lerp(distance, 0f, local);
+            float rad = (float) Math.toRadians(angles[idx]);
+            float cx = centerX + r * (float) Math.cos(rad);
+            float cy = centerY + r * (float) Math.sin(rad);
+
+            float alpha = AndroidUtilities.lerp(1f, 0f, local);
+            float scaleFactor = AndroidUtilities.lerp(1f, 0.3f, local);
+
+            g.draw(
+                    canvas,
+                    cx, cy,
+                    scaleFactor,
+                    angles[idx],
+                    alpha * (1f - expandProgress) * (1f - actionBarProgress),
+                    lerp(0.9f, 0.25f, actionBarProgress)
+            );
+        }
+    }
+
+    private void drawFiveGiftsLayout(Canvas canvas, float avatarRadius, float centerX, float centerY) {
+        int[] order = {0, 1, 2, 3, 4};
+        float[] angles = {-90f, 162f, 18f, -126f, -54f};
+        float distance = avatarRadius + dp(45);
+        float groupSize = 1f / 2f;
+
+        for (int i = 0; i < gifts.size(); i++) {
+            int idx = order[i];
+            Gift g = gifts.get(idx);
+            int grp = (i == 0) ? 1 : 0;
+
+            float start = grp * groupSize;
+            float end = (grp + 1) * groupSize;
+
+            float local;
+            if (giftsAnimationProgress >= end) {
+                local = 0f;
+            } else if (giftsAnimationProgress <= start) {
+                continue;
+            } else {
+                float t = (end - giftsAnimationProgress) / groupSize;
+                t = Utilities.clamp01(t);
+                local = t * t;
+            }
+            float r = AndroidUtilities.lerp(distance, 0f, local);
+            float rad = (float) Math.toRadians(angles[idx]);
+            float cx = centerX + r * (float) Math.cos(rad);
+            float cy = centerY + r * (float) Math.sin(rad);
+
+            float alpha = AndroidUtilities.lerp(1f, 0f, local);
+            float scaleFactor = AndroidUtilities.lerp(1f, 0.3f, local);
+
+            g.draw(
+                    canvas,
+                    cx, cy,
+                    scaleFactor,
+                    angles[idx],
+                    alpha * (1f - expandProgress) * (1f - actionBarProgress),
+                    lerp(0.9f, 0.25f, actionBarProgress)
+            );
+        }
+    }
+
+    private void drawSixGiftsLayout(Canvas canvas, float smallX, float smallY, float largeX, float largeY, float acx, float acy) {
+        int[] order = { 4, 5, 2, 1, 0, 3 };
+        float[] angles = { 45f, -45f, 135f, -135f, 0f, 180f };
+
+        int max = Math.min(gifts.size(), order.length);
+        float groupSize = 1f / 3f;
+
+        for (int i = 0; i < max; i++) {
+            int idx = order[i];
+            if (idx >= gifts.size()) continue;
+            Gift g = gifts.get(idx);
+            int grp = i / 2;
+
+            float start = grp * groupSize;
+            float end = (grp + 1) * groupSize;
+
+            float local;
+            if (giftsAnimationProgress >= end) {
+                local = 0f;
+            } else if (giftsAnimationProgress <= start) {
+                continue;
+            } else {
+                float t = (end - giftsAnimationProgress) / groupSize;
+                t = Utilities.clamp01(t);
+                local = t * t;
+            }
+
+            float currentAngle = angles[idx];
+            float tx, ty;
+            if (currentAngle == 0 || currentAngle == 180 || currentAngle == -180) {
+                tx = largeX;
+                ty = largeY;
+            } else {
+                tx = smallX;
+                ty = smallY;
+            }
+
+            float rx = AndroidUtilities.lerp(tx, 0f, local);
+            float ry = AndroidUtilities.lerp(ty, 0f, local);
+
+            float rad = (float) Math.toRadians(currentAngle);
+            float cx = acx + rx * (float) Math.cos(rad);
+            float cy = acy + ry * (float) Math.sin(rad);
+
+            float alpha = AndroidUtilities.lerp(1f, 0f, local);
+            float scaleFactor = AndroidUtilities.lerp(1f, 0.3f, local);
+
+            g.draw(
+                    canvas,
+                    cx, cy,
+                    scaleFactor,
+                    currentAngle,
+                    alpha * (1f - expandProgress) * (1f - actionBarProgress),
+                    lerp(0.9f, 0.25f, actionBarProgress)
+            );
+        }
+    }
+
 
     public Gift getGiftUnder(float x, float y) {
         for (int i = 0; i < gifts.size(); ++i) {

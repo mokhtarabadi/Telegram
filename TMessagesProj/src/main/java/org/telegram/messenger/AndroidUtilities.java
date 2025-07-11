@@ -32,6 +32,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -39,6 +40,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.Matrix;
+import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -122,6 +124,7 @@ import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.graphics.ColorUtils;
+import androidx.core.graphics.PathParser;
 import androidx.core.math.MathUtils;
 import androidx.core.widget.NestedScrollView;
 import androidx.dynamicanimation.animation.DynamicAnimation;
@@ -2724,6 +2727,10 @@ public class AndroidUtilities {
             ViewConfiguration vc = ViewConfiguration.get(context);
             touchSlop = vc.getScaledTouchSlop();
             isSmallScreen = null;
+
+            if (cutoutInfo == null) {
+                loadCutoutInfo(context);
+            }
         } catch (Exception e) {
             FileLog.e(e);
         }
@@ -3554,15 +3561,15 @@ public class AndroidUtilities {
 
     private static File getAlbumDir(boolean secretChat) {
         if (
-            secretChat ||
-            !BuildVars.NO_SCOPED_STORAGE ||
-            (
-                Build.VERSION.SDK_INT >= 33 &&
-                ApplicationLoader.applicationContext.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED
-            ) || (
-                Build.VERSION.SDK_INT >= 23 && Build.VERSION.SDK_INT <= 33 &&
-                ApplicationLoader.applicationContext.checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
-            )
+                secretChat ||
+                        !BuildVars.NO_SCOPED_STORAGE ||
+                        (
+                                Build.VERSION.SDK_INT >= 33 &&
+                                        ApplicationLoader.applicationContext.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED
+                        ) || (
+                        Build.VERSION.SDK_INT >= 23 && Build.VERSION.SDK_INT <= 33 &&
+                                ApplicationLoader.applicationContext.checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+                )
         ) {
             return FileLoader.getDirectory(FileLoader.MEDIA_DIR_IMAGE);
         }
@@ -5034,10 +5041,10 @@ public class AndroidUtilities {
     public static void lerp(Rect a, RectF b, float f, RectF to) {
         if (to != null) {
             to.set(
-                lerp(a.left, b.left, f),
-                lerp(a.top, b.top, f),
-                lerp(a.right, b.right, f),
-                lerp(a.bottom, b.bottom, f)
+                    lerp(a.left, b.left, f),
+                    lerp(a.top, b.top, f),
+                    lerp(a.right, b.right, f),
+                    lerp(a.bottom, b.bottom, f)
             );
         }
     }
@@ -5045,10 +5052,10 @@ public class AndroidUtilities {
     public static void lerp(RectF a, Rect b, float f, RectF to) {
         if (to != null) {
             to.set(
-                lerp(a.left, b.left, f),
-                lerp(a.top, b.top, f),
-                lerp(a.right, b.right, f),
-                lerp(a.bottom, b.bottom, f)
+                    lerp(a.left, b.left, f),
+                    lerp(a.top, b.top, f),
+                    lerp(a.right, b.right, f),
+                    lerp(a.bottom, b.bottom, f)
             );
         }
     }
@@ -5056,10 +5063,10 @@ public class AndroidUtilities {
     public static void lerp(RectF a, RectF b, float f, RectF to) {
         if (to != null) {
             to.set(
-                lerp(a.left, b.left, f),
-                lerp(a.top, b.top, f),
-                lerp(a.right, b.right, f),
-                lerp(a.bottom, b.bottom, f)
+                    lerp(a.left, b.left, f),
+                    lerp(a.top, b.top, f),
+                    lerp(a.right, b.right, f),
+                    lerp(a.bottom, b.bottom, f)
             );
         }
     }
@@ -5067,10 +5074,10 @@ public class AndroidUtilities {
     public static void lerp(Rect a, Rect b, float f, Rect to) {
         if (to != null) {
             to.set(
-                lerp(a.left, b.left, f),
-                lerp(a.top, b.top, f),
-                lerp(a.right, b.right, f),
-                lerp(a.bottom, b.bottom, f)
+                    lerp(a.left, b.left, f),
+                    lerp(a.top, b.top, f),
+                    lerp(a.right, b.right, f),
+                    lerp(a.bottom, b.bottom, f)
             );
         }
     }
@@ -5136,10 +5143,10 @@ public class AndroidUtilities {
         final float wl = px - rect.left, wr = rect.right - px;
         final float ht = py - rect.top, hb = rect.bottom - py;
         rect.set(
-            px - wl * scale,
-            py - ht * scale,
-            px + wr * scale,
-            py + hb * scale
+                px - wl * scale,
+                py - ht * scale,
+                px + wr * scale,
+                py + hb * scale
         );
     }
 
@@ -5909,7 +5916,7 @@ public class AndroidUtilities {
     public static boolean hasDialogOnTop(BaseFragment fragment) {
         if (fragment == null) return false;
         if (fragment.visibleDialog != null && !(fragment.visibleDialog instanceof AlertDialog) && !(
-            fragment.visibleDialog instanceof BottomSheet && ((BottomSheet) fragment.visibleDialog).attachedFragment != null
+                fragment.visibleDialog instanceof BottomSheet && ((BottomSheet) fragment.visibleDialog).attachedFragment != null
         )) return true;
         if (fragment.getParentLayout() == null) return false;
         List<View> globalViews = allGlobalViews();
@@ -5923,8 +5930,8 @@ public class AndroidUtilities {
                 }
             }
             if (!(
-                lastGlobalView instanceof AlertDialog.AlertDialogView ||
-                lastGlobalView instanceof PipRoundVideoView.PipFrameLayout
+                    lastGlobalView instanceof AlertDialog.AlertDialogView ||
+                            lastGlobalView instanceof PipRoundVideoView.PipFrameLayout
             )) break;
         }
         return lastGlobalView != getRootView(fragment.getParentLayout().getView());
@@ -6003,12 +6010,12 @@ public class AndroidUtilities {
             }
             Utilities.stackBlurBitmap(bitmap, Math.max(amount, Math.max(w, h) / 180));
 //            AndroidUtilities.runOnUIThread(() -> {
-                onBitmapDone.run(bitmap);
+            onBitmapDone.run(bitmap);
 //            });
         } catch (Exception e) {
             FileLog.e(e);
 //            AndroidUtilities.runOnUIThread(() -> {
-                onBitmapDone.run(null);
+            onBitmapDone.run(null);
 //            });
         } finally {
             makingGlobalBlurBitmap = false;
@@ -6313,7 +6320,7 @@ public class AndroidUtilities {
         return "";
     }
 
-	public static void quietSleep(long millis) {
+    public static void quietSleep(long millis) {
         try {
             Thread.sleep(millis);
         } catch (InterruptedException ignored) {
@@ -6397,8 +6404,8 @@ public class AndroidUtilities {
                     return foundChild;
                 }
             } else if (
-                x >= child.getX() && x <= child.getX() + child.getWidth() &&
-                y >= child.getY() && x <= child.getY() + child.getHeight()
+                    x >= child.getX() && x <= child.getX() + child.getWidth() &&
+                            y >= child.getY() && x <= child.getY() + child.getHeight()
             ) {
                 return child;
             }
@@ -6612,8 +6619,8 @@ public class AndroidUtilities {
 
     public static boolean gzip(File input, File output) {
         try (
-            BufferedInputStream in = new BufferedInputStream(new FileInputStream(input));
-            GZIPOutputStream out = new GZIPOutputStream(new BufferedOutputStream(new FileOutputStream(output)))
+                BufferedInputStream in = new BufferedInputStream(new FileInputStream(input));
+                GZIPOutputStream out = new GZIPOutputStream(new BufferedOutputStream(new FileOutputStream(output)))
         ) {
             byte[] buffer = new byte[8 * 1024];
             int n;
@@ -6643,5 +6650,162 @@ public class AndroidUtilities {
 
         FileLog.d("[FLAG_SECURE]");
         printStackTrace("FLAG_SECURE");
+    }
+
+    public static int lerpColor(int color1, int color2, float t) {
+        int r1 = Color.red(color1);
+        int g1 = Color.green(color1);
+        int b1 = Color.blue(color1);
+        int r2 = Color.red(color2);
+        int g2 = Color.green(color2);
+        int b2 = Color.blue(color2);
+
+        int r = (int) (r1 + (r2 - r1) * t);
+        int g = (int) (g1 + (g2 - g1) * t);
+        int b = (int) (b1 + (b2 - b1) * t);
+
+        return Color.rgb(r, g, b);
+    }
+
+    public static int[] getGradientColors(Bitmap bitmap, float spectrumShift, int brightness) {
+        int w = bitmap.getWidth();
+        int h = bitmap.getHeight();
+        int stripeWidth = (int) (w * 0.2f);
+
+        int shiftAmount = (int) (spectrumShift * (w - stripeWidth));
+
+        int lStart = Math.max(0, Math.min(w - 1, shiftAmount));
+        int lEnd = Math.max(1, Math.min(w, stripeWidth + shiftAmount));
+
+        int cShiftAmount = (int) (spectrumShift * (w / 2f));
+        int cStart = Math.max(0, Math.min(w - 1, (w / 2) - (stripeWidth / 2) + cShiftAmount));
+        int cEnd = Math.max(1, Math.min(w, (w / 2) + (stripeWidth / 2) + cShiftAmount));
+
+        int rShiftAmount = (int) (spectrumShift * (w - stripeWidth));
+        int rStart = Math.max(0, Math.min(w - 1, w - stripeWidth + rShiftAmount));
+        int rEnd = Math.max(1, Math.min(w, w + rShiftAmount));
+
+        int leftColor = getAverageStripeColor(bitmap, lStart, lEnd);
+        int centerColor = getAverageStripeColor(bitmap, cStart, cEnd);
+        int rightColor = getAverageStripeColor(bitmap, rStart, rEnd);
+
+        return new int[]{
+                adjustBrightness(leftColor, brightness),
+                adjustBrightness(centerColor, brightness),
+                adjustBrightness(rightColor, brightness)
+        };
+    }
+
+    public static int getAverageStripeColor(Bitmap bitmap, int xStart, int xEnd) {
+        if (xStart >= xEnd) return Color.BLACK;
+        int w = xEnd - xStart;
+        int h = bitmap.getHeight();
+        int[] pixels = new int[w * h];
+        bitmap.getPixels(pixels, 0, w, xStart, 0, w, h);
+
+        long r = 0, g = 0, b = 0;
+        for (int pixel : pixels) {
+            r += Color.red(pixel);
+            g += Color.green(pixel);
+            b += Color.blue(pixel);
+        }
+        int count = pixels.length;
+        return Color.rgb((int) (r / count), (int) (g / count), (int) (b / count));
+    }
+
+    public static int adjustBrightness(int color, int amount) {
+        int r = Math.max(0, Math.min(255, Color.red(color) + amount));
+        int g = Math.max(0, Math.min(255, Color.green(color) + amount));
+        int b = Math.max(0, Math.min(255, Color.blue(color) + amount));
+        return Color.rgb(r, g, b);
+    }
+
+    public static CutoutInfo cutoutInfo;
+
+    private static void loadCutoutInfo(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            return;
+        }
+
+        Resources res = context.getResources();
+        int resId = res.getIdentifier("config_mainBuiltInDisplayCutout", "string", "android");
+        if (resId == 0) {
+            return;
+        }
+
+        String spec = res.getString(resId);
+        if (spec == null || spec.isEmpty()) {
+            return;
+        }
+
+        spec = spec.trim();
+        DisplayMetrics metrics = res.getDisplayMetrics();
+
+        try {
+            CutoutInfo info = new CutoutInfo();
+
+            float offsetX;
+            if (spec.endsWith("@right")) {
+                offsetX = metrics.widthPixels;
+                spec = spec.substring(0, spec.length() - "@right".length()).trim();
+                info.gravity = Gravity.RIGHT;
+            } else if (spec.endsWith("@left")) {
+                offsetX = 0;
+                spec = spec.substring(0, spec.length() - "@left".length()).trim();
+                info.gravity = Gravity.LEFT;
+            } else {
+                offsetX = metrics.widthPixels / 2f;
+                info.gravity = Gravity.CENTER;
+            }
+
+            boolean inDp = spec.endsWith("@dp");
+            if (inDp) {
+                spec = spec.substring(0, spec.length() - "@dp".length());
+            }
+
+            if (spec.contains("@bottom")) {
+                String[] splits = spec.split("@bottom", 2);
+                spec = splits[0].trim();
+            }
+
+            Path p = PathParser.createPathFromPathData(spec);
+            if (p == null) {
+                return;
+            }
+
+            Matrix matrix = new Matrix();
+            if (inDp) {
+                matrix.postScale(density, density);
+            }
+            matrix.postTranslate(offsetX, 0);
+            p.transform(matrix);
+            info.path = p;
+
+            RectF bounds = new RectF();
+            p.computeBounds(bounds, true);
+            info.bounds = bounds;
+
+            if (info.gravity != Gravity.CENTER && Math.abs(bounds.centerX() - metrics.widthPixels / 2f) <= dp(2)) {
+                info.gravity = Gravity.CENTER;
+            }
+
+            info.isAccurate = spec.contains("C") || spec.contains("S") || spec.contains("Q");
+            info.isProbablyCircle = bounds.width() <= dp(32) || bounds.width() <= bounds.height();
+
+            cutoutInfo = info;
+
+            FileLog.d("Device cutout details loaded: " + cutoutInfo.gravity + ", accurate: " + cutoutInfo.isAccurate + ", likely circle: " + cutoutInfo.isProbablyCircle);
+        } catch (Exception e) {
+            FileLog.e(e);
+            cutoutInfo = null;
+        }
+    }
+
+    public static final class CutoutInfo {
+        public int gravity;
+        public boolean isAccurate;
+        public boolean isProbablyCircle;
+        public Path path;
+        public RectF bounds;
     }
 }

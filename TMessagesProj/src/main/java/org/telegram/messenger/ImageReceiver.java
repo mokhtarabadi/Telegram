@@ -17,6 +17,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.ComposeShader;
+import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -2814,13 +2815,25 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
                     allowCrossFade = !animatedFileDrawable.hasBitmap();
                 }
             }
-            currentImageDrawable = drawable;
+
+            originalImageDrawable = drawable;
+            if (isBlurred && drawable instanceof BitmapDrawable && !(drawable instanceof AnimatedFileDrawable) && !(drawable instanceof RLottieDrawable)) {
+                Bitmap originalBitmap = ((BitmapDrawable) drawable).getBitmap();
+                Bitmap processedBitmap = applyGradientEffect(originalBitmap);
+                if (processedBitmap != null) {
+                    currentImageDrawable = new BitmapDrawable(parentView.getResources(), processedBitmap);
+                } else {
+                    currentImageDrawable = drawable;
+                }
+            } else {
+                currentImageDrawable = drawable;
+            }
 
             if (drawable instanceof ExtendedBitmapDrawable) {
                 imageOrientation = ((ExtendedBitmapDrawable) drawable).getOrientation();
                 imageInvert = ((ExtendedBitmapDrawable) drawable).getInvert();
             }
-            updateDrawableRadius(drawable);
+            updateDrawableRadius(currentImageDrawable);
 
             if (allowCrossFade && isVisible && (!memCache && !forcePreview || forceCrossfade) && crossfadeDuration != 0) {
                 boolean allowCrossfade = true;
@@ -2868,8 +2881,21 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
                     animatedFileDrawable.seekTo(currentTimestamp, true, true);
                 }
             }
-            currentMediaDrawable = drawable;
-            updateDrawableRadius(drawable);
+
+            originalMediaDrawable = drawable;
+            if (isBlurred && drawable instanceof BitmapDrawable && !(drawable instanceof AnimatedFileDrawable) && !(drawable instanceof RLottieDrawable)) {
+                Bitmap originalBitmap = ((BitmapDrawable) drawable).getBitmap();
+                Bitmap processedBitmap = applyGradientEffect(originalBitmap);
+                if (processedBitmap != null) {
+                    currentMediaDrawable = new BitmapDrawable(parentView.getResources(), processedBitmap);
+                } else {
+                    currentMediaDrawable = drawable;
+                }
+            } else {
+                currentMediaDrawable = drawable;
+            }
+
+            updateDrawableRadius(currentMediaDrawable);
 
             if (currentImageDrawable == null) {
                 boolean allowCrossfade = true;
@@ -3047,6 +3073,7 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
         if (type == TYPE_MEDIA) {
             currentMediaKey = null;
             currentMediaDrawable = null;
+            originalMediaDrawable = null;
             mediaShader = null;
         } else if (type == TYPE_CROSSFDADE) {
             crossfadeKey = null;
@@ -3058,6 +3085,7 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
             thumbShader = null;
         } else {
             currentImageDrawable = null;
+            originalImageDrawable = null;
             currentImageKey = null;
             imageShader = null;
         }
@@ -3376,6 +3404,119 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
         }
         public void onDetachedFromWidnow() {
 
+        }
+    }
+
+    private boolean isBlurred;
+    private Drawable originalImageDrawable;
+    private Drawable originalMediaDrawable;
+
+    public void setBlurred(boolean blurred) {
+        if (isBlurred == blurred) {
+            return;
+        }
+        isBlurred = blurred;
+
+        Drawable targetDrawable = getDrawable();
+        Drawable originalDrawable = null;
+        if (targetDrawable == currentImageDrawable) {
+            originalDrawable = originalImageDrawable;
+        } else if (targetDrawable == currentMediaDrawable) {
+            originalDrawable = originalMediaDrawable;
+        }
+
+        if (targetDrawable != null && originalDrawable != null) {
+            if (isBlurred) {
+                if (originalDrawable instanceof BitmapDrawable && !(originalDrawable instanceof AnimatedFileDrawable) && !(originalDrawable instanceof RLottieDrawable)) {
+                    Bitmap originalBitmap = ((BitmapDrawable) originalDrawable).getBitmap();
+                    Bitmap processedBitmap = applyGradientEffect(originalBitmap);
+                    if (processedBitmap != null) {
+                        Drawable newDrawable = new BitmapDrawable(parentView.getResources(), processedBitmap);
+                        if (targetDrawable == currentImageDrawable) {
+                            currentImageDrawable = newDrawable;
+                            updateDrawableRadius(currentImageDrawable);
+                        } else {
+                            currentMediaDrawable = newDrawable;
+                            updateDrawableRadius(currentMediaDrawable);
+                        }
+                    }
+                }
+            } else {
+                if (targetDrawable != originalDrawable && targetDrawable instanceof BitmapDrawable) {
+                    ((BitmapDrawable) targetDrawable).getBitmap().recycle();
+                }
+                if (targetDrawable == currentImageDrawable) {
+                    currentImageDrawable = originalImageDrawable;
+                } else {
+                    currentMediaDrawable = originalMediaDrawable;
+                }
+            }
+        }
+        invalidate();
+    }
+
+    private Bitmap applyGradientEffect(Bitmap originalBitmap) {
+        if (originalBitmap == null || originalBitmap.isRecycled() || originalBitmap.getWidth() <= 0 || originalBitmap.getHeight() <= 0) {
+            return null;
+        }
+
+        try {
+            int originalWidth = originalBitmap.getWidth();
+            int originalHeight = originalBitmap.getHeight();
+            int gradientBarHeight = AndroidUtilities.dp(44);
+            int newHeight = originalHeight + gradientBarHeight;
+
+            int[] compositePixels = new int[originalWidth * newHeight];
+            originalBitmap.getPixels(compositePixels, 0, originalWidth, 0, 0, originalWidth, originalHeight);
+
+            int[] gradientColors = AndroidUtilities.getGradientColors(originalBitmap, 0, 0);
+            int leftColor = gradientColors[0];
+            int centerColor = gradientColors[1];
+            int rightColor = gradientColors[2];
+
+            int fadeRegionHeight = (int) (originalHeight * 0.15f);
+            if (fadeRegionHeight > 0) {
+                int fadeStartY = originalHeight - fadeRegionHeight;
+                for (int y = fadeStartY; y < originalHeight; y++) {
+                    float fadeT = (y - fadeStartY) / (float) fadeRegionHeight;
+                    for (int x = 0; x < originalWidth; x++) {
+                        int pixelIndex = y * originalWidth + x;
+                        int imgPixel = compositePixels[pixelIndex];
+
+                        float rel = x / (float) (originalWidth - 1);
+                        int gradColor;
+                        if (rel < 0.5f) {
+                            gradColor = AndroidUtilities.lerpColor(leftColor, centerColor, rel / 0.5f);
+                        } else {
+                            gradColor = AndroidUtilities.lerpColor(centerColor, rightColor, (rel - 0.5f) / 0.5f);
+                        }
+
+                        int r = (int) (Color.red(imgPixel) * (1 - fadeT) + Color.red(gradColor) * fadeT);
+                        int g = (int) (Color.green(imgPixel) * (1 - fadeT) + Color.green(gradColor) * fadeT);
+                        int b = (int) (Color.blue(imgPixel) * (1 - fadeT) + Color.blue(gradColor) * fadeT);
+
+                        compositePixels[pixelIndex] = Color.rgb(r, g, b);
+                    }
+                }
+            }
+
+            for (int y = originalHeight; y < newHeight; y++) {
+                for (int x = 0; x < originalWidth; x++) {
+                    float rel = x / (float) (originalWidth - 1);
+                    int gradColor;
+                    if (rel < 0.5f) {
+                        gradColor = AndroidUtilities.lerpColor(leftColor, centerColor, rel / 0.5f);
+                    } else {
+                        gradColor = AndroidUtilities.lerpColor(centerColor, rightColor, (rel - 0.5f) / 0.5f);
+                    }
+                    compositePixels[y * originalWidth + x] = gradColor;
+                }
+            }
+
+            return Bitmap.createBitmap(compositePixels, originalWidth, newHeight, Bitmap.Config.ARGB_8888);
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return null;
         }
     }
 }
